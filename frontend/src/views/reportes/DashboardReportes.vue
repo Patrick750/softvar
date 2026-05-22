@@ -1,106 +1,117 @@
 <template>
-  <div class="container mt-4">
-    <h2>Dashboard de Reportes</h2>
-    <p class="text-muted mb-4">Visualice las métricas clave de asistencia y nómina de su empresa</p>
+  <div class="page-container">
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="page-title">Dashboard de Reportes</h1>
+          <p class="page-description">Métricas clave de asistencia y nómina de su empresa</p>
+        </div>
+      </div>
+    </div>
 
-    <div class="row g-4 mb-4">
-      <!-- Tarjetas de métricas resumidas -->
-      <div class="col-md-3">
-        <div class="card h-100 border-primary">
-          <div class="card-body text-center">
-            <h5 class="card-title">Empleados Activos</h5>
-            <div class="display-4 fw-bold text-primary">{{ metrics.activeEmployees }}</div>
-            <p class="text-muted">+2% vs mes anterior</p>
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-primary">
+        <div class="kpi-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Empleados Activos</span>
+          <span class="kpi-value">{{ metrics.activeEmployees }}</span>
+          <span class="kpi-trend positive">+2% vs mes anterior</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-success">
+        <div class="kpi-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Asistencia Promedio</span>
+          <span class="kpi-value">{{ metrics.attendanceRate }}<small>%</small></span>
+          <span class="kpi-trend positive">+1.5% vs mes anterior</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-warning">
+        <div class="kpi-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Horas Extras Totales</span>
+          <span class="kpi-value">{{ formatHours(metrics.totalOvertime) }}</span>
+          <span class="kpi-trend negative">-3% vs mes anterior</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-info">
+        <div class="kpi-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Costo Nómina Mensual</span>
+          <span class="kpi-value">{{ formatCurrency(metrics.monthlyPayrollCost) }}</span>
+          <span class="kpi-trend positive">+4.5% vs mes anterior</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="card-dot" style="background: var(--color-primary-700);"></span>
+            <h3>Días Trabajados vs Ausencias</h3>
+          </div>
+          <span class="card-badge">Últimos 6 meses</span>
+        </div>
+        <div class="card-body chart-body">
+          <div class="chart-container">
+            <canvas id="workDaysChart"></canvas>
           </div>
         </div>
       </div>
 
-      <div class="col-md-3">
-        <div class="card h-100 border-success">
-          <div class="card-body text-center">
-            <h5 class="card-title">Asistencia Promedio</h5>
-            <div class="display-4 fw-bold text-success">{{ metrics.attendanceRate }}%</div>
-            <p class="text-muted">+1.5% vs mes anterior</p>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="card-dot" style="background: var(--color-secondary-700);"></span>
+            <h3>Horas Extras y Costo Nómina</h3>
           </div>
+          <span class="card-badge">Últimos 6 meses</span>
         </div>
-      </div>
-
-      <div class="col-md-3">
-        <div class="card h-100 border-warning">
-          <div class="card-body text-center">
-            <h5 class="card-title">Horas Extras Totales</h5>
-            <div class="display-4 fw-bold text-warning">{{ formatHours(metrics.totalOvertime) }}</div>
-            <p class="text-muted">-3% vs mes anterior</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-3">
-        <div class="card h-100 border-info">
-          <div class="card-body text-center">
-            <h5 class="card-title">Costo Nómina Mensual</h5>
-            <div class="display-4 fw-bold text-info">{{ formatCurrency(metrics.monthlyPayrollCost) }}</div>
-            <p class="text-muted">+4.5% vs mes anterior</p>
+        <div class="card-body chart-body">
+          <div class="chart-container">
+            <canvas id="overtimeCostChart"></canvas>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="row g-4">
-      <!-- Gráfica de Barras: Días Trabajados y Ausencias -->
-      <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Días Trabajados vs Ausencias (Últimos 6 Meses)</h5>
+    <!-- Charts Row 2 -->
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="card-dot" style="background: var(--color-primary-500);"></span>
+            <h3>Distribución por Departamento</h3>
           </div>
-          <div class="card-body p-0">
-            <div class="chart-container" style="height: 300px;">
-              <canvas id="workDaysChart"></canvas>
-            </div>
+        </div>
+        <div class="card-body chart-body">
+          <div class="chart-container">
+            <canvas id="deptChart"></canvas>
           </div>
         </div>
       </div>
 
-      <!-- Gráfica de Líneas: Horas Extras y Costo -->
-      <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header bg-success text-white">
-            <h5 class="mb-0">Horas Extras y Costo Nómina (Últimos 6 Meses)</h5>
-          </div>
-          <div class="card-body p-0">
-            <div class="chart-container" style="height: 300px;">
-              <canvas id="overtimeCostChart"></canvas>
-            </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="card-dot" style="background: var(--color-warning-accent);"></span>
+            <h3>Top 5 — Horas Extras</h3>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div class="row g-4 mt-4">
-      <!-- Gráfica de Pastel: Distribución por Departamento -->
-      <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header bg-info text-white">
-            <h5 class="mb-0">Distribución de Empleados por Departamento</h5>
-          </div>
-          <div class="card-body p-0">
-            <div class="chart-container" style="height: 300px;">
-              <canvas id="deptChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Gráfica de Barra Horizontal: Top 5 Empleados con Más Horas Extras -->
-      <div class="col-lg-6">
-        <div class="card h-100">
-          <div class="card-header bg-warning text-white">
-            <h5 class="mb-0">Top 5 Empleados con Más Horas Extras</h5>
-          </div>
-          <div class="card-body p-0">
-            <div class="chart-container" style="height: 300px;">
-              <canvas id="topOvertimeChart"></canvas>
-            </div>
+        <div class="card-body chart-body">
+          <div class="chart-container">
+            <canvas id="topOvertimeChart"></canvas>
           </div>
         </div>
       </div>
@@ -116,23 +127,19 @@ export default {
     const metrics = ref({
       activeEmployees: 124,
       attendanceRate: 96.8,
-      totalOvertime: 145.5, // horas
-      monthlyPayrollCost: 87500000 // COP
+      totalOvertime: 145.5,
+      monthlyPayrollCost: 87500000
     })
 
-    // Datos para las gráficas (simulados)
-    const chartData = ref({
+    const chartData = {
       workDaysLabels: ['Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May'],
-      workDaysData: [22, 20, 19, 21, 22, 21], // días trabajados promedio
-      absenceData: [3, 5, 6, 4, 3, 4], // días de ausencia promedio
-
+      workDaysData: [22, 20, 19, 21, 22, 21],
+      absenceData: [3, 5, 6, 4, 3, 4],
       overtimeLabels: ['Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May'],
-      overtimeData: [120, 135, 142, 138, 150, 145.5], // horas extras
-      costData: [82000000, 84500000, 86000000, 85500000, 88000000, 87500000], // costo nómina
-
+      overtimeData: [120, 135, 142, 138, 150, 145.5],
+      costData: [82000000, 84500000, 86000000, 85500000, 88000000, 87500000],
       deptLabels: ['Administrativo', 'Ventas', 'Operaciones', 'TI', 'RRHH'],
-      deptData: [35, 25, 20, 12, 8], // porcentaje por departamento
-
+      deptData: [35, 25, 20, 12, 8],
       topEmployees: [
         { name: 'Juan Pérez', hours: 28.5 },
         { name: 'María López', hours: 25.3 },
@@ -140,333 +147,191 @@ export default {
         { name: 'Ana Gómez', hours: 19.8 },
         { name: 'Luis Torres', hours: 17.2 }
       ]
-    })
-
-    const formatCurrency = (value) => {
-      return new Intl.NumberFormat('es-CO', {
-        style: 'currency',
-        currency: 'COP'
-      }).format(value)
     }
 
-    const formatHours = (hours) => {
-      return new Intl.NumberFormat('es-CO', {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1
-      }).format(hours)
-    }
+    const formatCurrency = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(v)
+    const formatHours = (v) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v) + ' hrs'
 
-    // Inicializar gráficas cuando se monte el componente
     onMounted(() => {
-      // Simular delay para asegurar que el DOM esté listo
       setTimeout(() => {
-        initCharts()
-      }, 100)
+        const initChart = (id) => {
+          if (typeof Chart === 'undefined' || !document.getElementById(id)) return
+          return document.getElementById(id)
+        }
+
+        // Work Days Chart
+        const wCtx = initChart('workDaysChart')
+        if (wCtx) {
+          new Chart(wCtx, {
+            type: 'bar',
+            data: {
+              labels: chartData.workDaysLabels,
+              datasets: [
+                { label: 'Días Trabajados', data: chartData.workDaysData, backgroundColor: 'rgba(24, 95, 165, 0.8)', borderColor: '#185FA5', borderWidth: 1, borderRadius: 4 },
+                { label: 'Ausencias', data: chartData.absenceData, backgroundColor: 'rgba(163, 45, 45, 0.7)', borderColor: '#A32D2D', borderWidth: 1, borderRadius: 4 }
+              ]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, padding: 15, font: { family: "'Work Sans', sans-serif", size: 11 } } } },
+              scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
+                x: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } }
+              }
+            }
+          })
+        }
+
+        // Overtime & Cost Chart
+        const oCtx = initChart('overtimeCostChart')
+        if (oCtx) {
+          new Chart(oCtx, {
+            type: 'line',
+            data: {
+              labels: chartData.overtimeLabels,
+              datasets: [
+                { label: 'Horas Extras', data: chartData.overtimeData, borderColor: '#3B6D11', backgroundColor: 'transparent', tension: 0.4, pointBackgroundColor: '#3B6D11', pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y' },
+                { label: 'Costo Nómina (Millones COP)', data: chartData.costData.map(v => v / 1000000), borderColor: '#185FA5', backgroundColor: 'transparent', tension: 0.4, pointBackgroundColor: '#185FA5', pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y1' }
+              ]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              interaction: { intersect: false, mode: 'index' },
+              plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, padding: 15, font: { family: "'Work Sans', sans-serif", size: 11 } } } },
+              scales: {
+                y: { type: 'linear', position: 'left', title: { display: true, text: 'Horas', font: { family: "'Work Sans', sans-serif", size: 11 } }, grid: { drawOnChartArea: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
+                y1: { type: 'linear', position: 'right', title: { display: true, text: 'Millones COP', font: { family: "'Work Sans', sans-serif", size: 11 } }, grid: { drawOnChartArea: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
+                x: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } }
+              }
+            }
+          })
+        }
+
+        // Department Chart
+        const dCtx = initChart('deptChart')
+        if (dCtx) {
+          new Chart(dCtx, {
+            type: 'doughnut',
+            data: {
+              labels: chartData.deptLabels,
+              datasets: [{
+                data: chartData.deptData,
+                backgroundColor: ['rgba(24, 95, 165, 0.85)', 'rgba(99, 153, 34, 0.85)', 'rgba(55, 138, 222, 0.7)', 'rgba(181, 212, 244, 0.9)', 'rgba(44, 62, 80, 0.7)'],
+                borderColor: 'white',
+                borderWidth: 3,
+                hoverOffset: 8
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              cutout: '60%',
+              plugins: {
+                legend: { position: 'right', labels: { boxWidth: 12, padding: 12, font: { family: "'Work Sans', sans-serif", size: 11 }, usePointStyle: true } },
+                tooltip: {
+                  callbacks: {
+                    label: function(ctx) {
+                      const total = ctx.dataset.data.reduce((a, b) => a + b, 0)
+                      return ctx.label + ': ' + ((ctx.parsed / total) * 100).toFixed(1) + '%'
+                    }
+                  }
+                }
+              }
+            }
+          })
+        }
+
+        // Top Overtime Chart
+        const tCtx = initChart('topOvertimeChart')
+        if (tCtx) {
+          new Chart(tCtx, {
+            type: 'bar',
+            data: {
+              labels: chartData.topEmployees.map(e => e.name),
+              datasets: [{
+                label: 'Horas Extras',
+                data: chartData.topEmployees.map(e => e.hours),
+                backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                borderColor: '#FFC107',
+                borderWidth: 1,
+                borderRadius: 4
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              indexAxis: 'y',
+              plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ctx.parsed + ' hrs' } }
+              },
+              scales: {
+                x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
+                y: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 10 } } }
+              }
+            }
+          })
+        }
+      }, 150)
     })
 
-    const initCharts = () => {
-      // Gráfica de Barras: Días Trabajados vs Ausencias
-      const workDaysCtx = document.getElementById('workDaysChart')
-      if (workDaysCtx) {
-        new Chart(workDaysCtx, {
-          type: 'bar',
-          data: {
-            labels: chartData.value.workDaysLabels,
-            datasets: [
-              {
-                label: 'Días Trabajados',
-                data: chartData.value.workDaysData,
-                backgroundColor: 'rgba(24, 95, 165, 0.8)', // --color-primary-700
-                borderColor: 'rgba(24, 95, 165, 1)',
-                borderWidth: 1
-              },
-              {
-                label: 'Ausencias',
-                data: chartData.value.absenceData,
-                backgroundColor: 'rgba(163, 45, 45, 0.8)', // --color-error-accent
-                borderColor: 'rgba(163, 45, 45, 1)',
-                borderWidth: 1
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              y: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: 'Días'
-                }
-              }
-            },
-            plugins: {
-              legend: {
-                position: 'top',
-              },
-              title: {
-                display: false
-              }
-            }
-          }
-        })
-      }
-
-      // Gráfica de Líneas: Horas Extras y Costo
-      const overtimeCostCtx = document.getElementById('overtimeCostChart')
-      if (overtimeCostCtx) {
-        new Chart(overtimeCostCtx, {
-          type: 'line',
-          data: {
-            labels: chartData.value.overtimeLabels,
-            datasets: [
-              {
-                label: 'Horas Extras',
-                data: chartData.value.overtimeData,
-                borderColor: 'rgba(99, 153, 34, 1)', // --color-secondary-700
-                backgroundColor: 'rgba(99, 153, 34, 0.1)',
-                tension: 0.3,
-                fill: false,
-                yAxisID: 'y'
-              },
-              {
-                label: 'Costo Nómina (Millones COP)',
-                data: chartData.value.costData.map(val => val / 1000000), // convertir a millones
-                borderColor: 'rgba(24, 95, 165, 1)', // --color-primary-700
-                backgroundColor: 'rgba(24, 95, 165, 0.1)',
-                tension: 0.3,
-                fill: false,
-                yAxisID: 'y1'
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                title: {
-                  display: true,
-                  text: 'Horas Extras'
-                },
-                grid: {
-                  drawOnChartArea: false,
-                }
-              },
-              y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                title: {
-                  display: true,
-                  text: 'Costo (Millones COP)'
-                },
-                grid: {
-                  drawOnChartArea: false,
-                }
-              }
-            },
-            plugins: {
-              legend: {
-                position: 'top',
-              }
-            }
-          }
-        })
-      }
-
-      // Gráfica de Pastel: Distribución por Departamento
-      const deptCtx = document.getElementById('deptChart')
-      if (deptCtx) {
-        new Chart(deptCtx, {
-          type: 'doughnut',
-          data: {
-            labels: chartData.value.deptLabels,
-            datasets: [{
-              label: 'Distribución por Departamento (%)',
-              data: chartData.value.deptData,
-              backgroundColor: [
-                'rgba(24, 95, 165, 0.8)',   // --color-primary-700
-                'rgba(99, 153, 34, 0.8)',    // --color-secondary-700
-                'rgba(55, 138, 171, 0.8)',   // --color-primary-500
-                'rgba(181, 212, 244, 0.8)',  // --color-primary-200
-                'rgba(44, 62, 80, 0.8)'      // tonos más oscuros
-              ],
-              borderColor: [
-                'rgba(24, 95, 165, 1)',
-                'rgba(99, 153, 34, 1)',
-                'rgba(55, 138, 171, 1)',
-                'rgba(181, 212, 244, 1)',
-                'rgba(44, 62, 80, 1)'
-              ],
-              borderWidth: 2
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'right',
-                labels: {
-                  boxWidth: 12,
-                  font: {
-                    size: 10
-                  }
-                }
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const label = context.label || '';
-                    const value = context.parsed || 0;
-                    const sum = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const percentage = (value / sum * 100).toFixed(1) + '%';
-                    return label + ': ' + percentage;
-                  }
-                }
-              }
-            }
-          }
-        })
-      }
-
-      // Gráfica de Barra Horizontal: Top 5 Empleados con Más Horas Extras
-      const topOvertimeCtx = document.getElementById('topOvertimeChart')
-      if (topOvertimeCtx) {
-        new Chart(topOvertimeCtx, {
-          type: 'bar',
-          data: {
-            labels: chartData.value.topEmployees.map(emp => emp.name),
-            datasets: [{
-              label: 'Horas Extras',
-              data: chartData.value.topEmployees.map(emp => emp.hours),
-              backgroundColor: 'rgba(255, 193, 7, 0.8)', // --color-warning-500 aproximado
-              borderColor: 'rgba(255, 193, 7, 1)',
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y', // barras horizontales
-            scales: {
-              x: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: 'Horas Extras'
-                }
-              }
-            },
-            plugins: {
-              legend: {
-                display: false
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    return context.parsed + ' hrs';
-                  }
-                }
-              }
-            }
-          }
-        })
-      }
-    }
-
-    return {
-      metrics,
-      formatCurrency,
-      formatHours
-    }
+    return { metrics, formatCurrency, formatHours }
   }
 }
 </script>
 
 <style scoped>
-.container {
-  max-width: 1600px;
-}
+.page-container { max-width: 1600px; margin: 0 auto; }
 
-.card {
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  margin-bottom: 1.5rem;
-  height: 100%; /* para hacer las tarjetas de igual altura en filas */
-}
+.page-header { margin-bottom: 2rem; }
+.page-header-content { display: flex; align-items: center; gap: 1rem; }
+.page-header-icon { width: 44px; height: 44px; background: var(--color-primary-50); color: var(--color-primary-700); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.page-title { font-family: 'Young Serif', Georgia, serif; font-size: 1.5rem; color: var(--color-neutral-text-primary); margin: 0; }
+.page-description { color: var(--color-neutral-text-secondary); margin: 0.15rem 0 0 0; font-size: 0.875rem; }
 
-.card-header {
-  border-radius: 12px 12px 0 0 !important;
-  padding: 1rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+/* KPI Grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-bottom: 1.5rem; }
 
-.card-header h5 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
+.kpi-card { background: white; border: 1px solid var(--color-neutral-divider); border-radius: 12px; padding: 1.25rem; display: flex; gap: 1rem; transition: all 0.2s; }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+.kpi-primary { border-top: 3px solid var(--color-primary-700); }
+.kpi-success { border-top: 3px solid var(--color-secondary-700); }
+.kpi-warning { border-top: 3px solid var(--color-warning-accent); }
+.kpi-info { border-top: 3px solid var(--color-primary-500); }
 
-.card-body {
-  padding: 1.5rem;
-}
+.kpi-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.kpi-primary .kpi-icon { background: var(--color-primary-50); color: var(--color-primary-700); }
+.kpi-success .kpi-icon { background: var(--color-secondary-50); color: var(--color-secondary-700); }
+.kpi-warning .kpi-icon { background: var(--color-warning-bg); color: var(--color-warning-accent); }
+.kpi-info .kpi-icon { background: var(--color-info-bg); color: var(--color-info-accent); }
 
-.chart-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
+.kpi-body { display: flex; flex-direction: column; gap: 0.15rem; }
+.kpi-label { font-size: 0.75rem; font-weight: 600; color: var(--color-neutral-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi-value { font-family: 'Young Serif', Georgia, serif; font-size: 1.75rem; color: var(--color-neutral-text-primary); line-height: 1.2; }
+.kpi-value small { font-family: 'Work Sans', sans-serif; font-size: 0.875rem; font-weight: 600; color: var(--color-neutral-text-secondary); }
+.kpi-trend { font-size: 0.75rem; font-weight: 500; }
+.kpi-trend.positive { color: var(--color-secondary-700); }
+.kpi-trend.negative { color: var(--color-error-accent); }
 
-/* Estilos para las tarjetas de métricas */
-.card.border-primary {
-  border-top: 3px solid var(--color-primary-700);
-}
+/* Charts */
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
 
-.card.border-success {
-  border-top: 3px solid var(--color-secondary-700);
-}
+.card { background: white; border: 1px solid var(--color-neutral-divider); border-radius: 12px; overflow: hidden; }
+.card-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-neutral-divider); display: flex; align-items: center; justify-content: space-between; }
+.card-header-left { display: flex; align-items: center; gap: 0.5rem; }
+.card-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.card-header h3 { font-family: 'Young Serif', Georgia, serif; font-size: 0.9rem; margin: 0; color: var(--color-neutral-text-primary); }
+.card-badge { font-size: 0.7rem; padding: 0.2rem 0.6rem; background: var(--color-neutral-bg-page); border-radius: 20px; color: var(--color-neutral-text-secondary); font-weight: 500; }
+.card-body { padding: 1.25rem; }
+.chart-body { padding: 0.75rem; }
+.chart-container { width: 100%; height: 300px; position: relative; }
 
-.card.border-warning {
-  border-top: 3px solid var(--color-secondary-500);
-}
-
-.card.border-info {
-  border-top: 3px solid var(--color-primary-500);
-}
-
-/* Responsive design */
 @media (max-width: 1200px) {
-  .container {
-    max-width: 95%;
-  }
-
-  .row.g-4 {
-    --bs-gutter-x: 1rem;
-    --bs-gutter-y: 1rem;
-  }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 768px) {
-  .col-lg-6 {
-    width: 100%;
-    margin-bottom: 1.5rem;
-  }
-
-  .card-body {
-    padding: 1rem;
-  }
-
-  .chart-container {
-    height: 250px !important;
-  }
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .page-header-content { flex-direction: column; text-align: center; }
+  .chart-container { height: 240px; }
 }
 </style>

@@ -62,6 +62,15 @@ const logout = () => {
   router.push('/login')
 }
 
+const handleClickOutside = (e) => {
+  if (!e.target.closest('.user-dropdown')) {
+    userDropdownOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onUnmounted(() => document.removeEventListener('click', handleClickOutside))
+
 // === Toast system ===
 const toasts = ref([])
 let toastId = 0
@@ -80,11 +89,9 @@ const removeToast = (id) => {
   }, 300)
 }
 
-// Proveer funcion de toast globalmente
 provide('addToast', addToast)
 
-// Actualizar datos del usuario desde localStorage cuando cambie la ruta
-// Esto asegura que despues del login el sidebar muestre el usuario real
+// Monitor for user changes
 watch(() => route.path, () => {
   const name = localStorage.getItem('userName')
   user.value = {
@@ -108,23 +115,40 @@ const pageTitle = computed(() => {
   if (route.path.includes('/filtros')) return 'Reportes Filtrables'
   return item ? item.label : ''
 })
+
+const roleBadgeClass = computed(() => {
+  const roles = {
+    'ADMIN_RRHH': 'badge-solid-primary',
+    'EMPLEADO': 'badge-solid-success',
+    'CONTADOR': 'badge-solid-success',
+    'GERENTE': 'badge-solid-primary',
+    'ADMIN_SISTEMA': 'badge-neutral'
+  }
+  return roles[user.value.role] || 'badge-neutral'
+})
 </script>
 
 <template>
-  <div class="app-container">
+  <div class="app-shell">
     <!-- Auth pages (login, reset password) - no layout -->
     <template v-if="isAuthPage">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <Transition name="auth-page" mode="out-in">
+          <component :is="Component" />
+        </Transition>
+      </router-view>
     </template>
 
     <!-- Main app layout -->
     <template v-else>
       <!-- Overlay for mobile sidebar -->
-      <div
-        v-if="mobileSidebarOpen"
-        class="sidebar-overlay"
-        @click="mobileSidebarOpen = false"
-      ></div>
+      <Transition name="fade">
+        <div
+          v-if="mobileSidebarOpen"
+          class="sidebar-overlay"
+          @click="mobileSidebarOpen = false"
+        />
+      </Transition>
 
       <!-- Sidebar -->
       <aside
@@ -138,39 +162,50 @@ const pageTitle = computed(() => {
           <div class="brand-icon">
             <i class="bi bi-building"></i>
           </div>
-          <span class="brand-text" v-show="!sidebarCollapsed || isMobile">
-            SoftVar
-          </span>
+          <Transition name="fade" mode="out-in">
+            <span v-if="!sidebarCollapsed || isMobile" class="brand-text" key="text">
+              SoftVar
+            </span>
+          </Transition>
         </div>
 
         <nav class="sidebar-nav">
           <ul class="nav-list">
-            <li v-for="item in navItems" :key="item.to" class="nav-item-custom">
+            <li v-for="item in navItems" :key="item.to" class="nav-item">
               <router-link
                 :to="item.to"
-                class="nav-link-custom"
+                class="nav-link"
                 :class="{ active: route.path === item.to || (item.to !== '/' && route.path.startsWith(item.to)) }"
                 @click="isMobile && (mobileSidebarOpen = false)"
               >
                 <i :class="`bi ${item.icon}`" class="nav-icon"></i>
-                <span class="nav-label-custom" v-show="!sidebarCollapsed || isMobile">
-                  {{ item.label }}
-                </span>
+                <Transition name="fade" mode="out-in">
+                  <span v-if="!sidebarCollapsed || isMobile" class="nav-label" key="label">
+                    {{ item.label }}
+                  </span>
+                </Transition>
               </router-link>
             </li>
           </ul>
         </nav>
 
-        <div class="sidebar-footer" v-show="!sidebarCollapsed || isMobile">
-          <div class="sidebar-user">
-            <div class="sidebar-user-avatar avatar avatar-placeholder avatar-sm">
-              {{ user.initials }}
+        <div class="sidebar-footer">
+          <Transition name="fade" mode="out-in">
+            <div v-if="!sidebarCollapsed || isMobile" class="sidebar-user" key="user">
+              <div class="avatar avatar-sm avatar-placeholder">
+                {{ user.initials }}
+              </div>
+              <div class="sidebar-user-info">
+                <div class="sidebar-user-name">{{ user.name }}</div>
+                <div class="sidebar-user-role">{{ user.role }}</div>
+              </div>
             </div>
-            <div class="sidebar-user-info">
-              <div class="sidebar-user-name">{{ user.name }}</div>
-              <div class="sidebar-user-role">{{ user.role }}</div>
+            <div v-else key="avatar-only" class="sidebar-user-compact">
+              <div class="avatar avatar-sm avatar-placeholder" data-tooltip="Cerrar sesión" @click="logout">
+                {{ user.initials }}
+              </div>
             </div>
-          </div>
+          </Transition>
         </div>
       </aside>
 
@@ -179,8 +214,8 @@ const pageTitle = computed(() => {
         <!-- Header -->
         <header class="app-header">
           <div class="header-left">
-            <button class="header-toggle" @click="toggleSidebar" :title="sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'">
-              <i class="bi bi-list"></i>
+            <button class="btn btn-icon btn-ghost header-toggle" @click="toggleSidebar">
+              <i :class="sidebarCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-left'" class="toggle-icon"></i>
             </button>
             <div class="header-title">
               <h2>{{ pageTitle }}</h2>
@@ -189,30 +224,30 @@ const pageTitle = computed(() => {
 
           <div class="header-right">
             <!-- Notification bell -->
-            <button class="header-icon-btn" title="Notificaciones">
+            <button class="btn btn-icon btn-ghost header-icon-btn" data-tooltip="Notificaciones">
               <i class="bi bi-bell"></i>
               <span class="notification-dot"></span>
             </button>
 
             <!-- User dropdown -->
-            <div class="user-dropdown" @click="userDropdownOpen = !userDropdownOpen">
-              <div class="user-dropdown-trigger">
-                <div class="avatar avatar-placeholder avatar-sm">{{ user.initials }}</div>
+            <div class="user-dropdown">
+              <button class="user-dropdown-trigger" @click.stop="userDropdownOpen = !userDropdownOpen">
+                <div class="avatar avatar-sm avatar-placeholder">{{ user.initials }}</div>
                 <div class="user-dropdown-info">
                   <span class="user-dropdown-name">{{ user.name }}</span>
-                  <span class="user-dropdown-role">{{ user.role }}</span>
+                  <span :class="['badge', roleBadgeClass]">{{ user.role }}</span>
                 </div>
                 <i class="bi bi-chevron-down dropdown-arrow" :class="{ open: userDropdownOpen }"></i>
-              </div>
+              </button>
 
               <Transition name="dropdown">
-                <div v-if="userDropdownOpen" class="dropdown-menu-custom">
-                  <div class="dropdown-header-custom">
+                <div v-if="userDropdownOpen" class="dropdown-menu">
+                  <div class="dropdown-header">
                     <p class="dropdown-user-name">{{ user.name }}</p>
                     <p class="dropdown-user-email">{{ user.email }}</p>
                   </div>
-                  <div class="dropdown-divider-custom"></div>
-                  <button class="dropdown-item-custom" @click="logout">
+                  <div class="divider"></div>
+                  <button class="dropdown-item" @click="logout">
                     <i class="bi bi-box-arrow-right"></i>
                     Cerrar Sesión
                   </button>
@@ -233,12 +268,12 @@ const pageTitle = computed(() => {
       </div>
 
       <!-- Toast container -->
-      <div class="toast-container-custom">
+      <div class="toast-container">
         <TransitionGroup name="toast-list">
           <div
             v-for="toast in toasts"
             :key="toast.id"
-            class="toast-custom"
+            class="toast"
             :class="{ 'toast-exit': toast.exiting }"
           >
             <div class="toast-icon" :class="toast.type">
@@ -249,7 +284,7 @@ const pageTitle = computed(() => {
                 'bi bi-info-lg': toast.type === 'info'
               }"></i>
             </div>
-            <div class="toast-body-custom">
+            <div class="toast-body">
               <div class="toast-title">{{ toast.title }}</div>
               <div class="toast-message">{{ toast.message }}</div>
             </div>
@@ -264,16 +299,24 @@ const pageTitle = computed(() => {
 </template>
 
 <style>
-/* === LAYOUT === */
-.app-container {
+/* === LAYOUT SHELL === */
+.app-shell {
   display: flex;
   min-height: 100vh;
 }
 
+/* === AUTH PAGE TRANSITION === */
+.auth-page-enter-active,
+.auth-page-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.auth-page-enter-from { opacity: 0; transform: scale(0.97); }
+.auth-page-leave-to { opacity: 0; transform: scale(1.03); }
+
 /* === SIDEBAR === */
 .sidebar {
   width: var(--sidebar-width);
-  background: #fff;
+  background: var(--color-bg-white);
   border-right: 1px solid var(--color-divider);
   display: flex;
   flex-direction: column;
@@ -297,9 +340,10 @@ const pageTitle = computed(() => {
 .sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.35);
   z-index: 1035;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 /* Brand */
@@ -307,15 +351,16 @@ const pageTitle = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1.25rem 1.25rem;
+  padding: 1.25rem;
   border-bottom: 1px solid var(--color-divider);
   min-height: var(--header-height);
+  overflow: hidden;
 }
 
 .brand-icon {
-  width: 36px;
-  height: 36px;
-  background: var(--color-primary-700);
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, var(--color-primary-700), var(--color-primary-500));
   border-radius: var(--border-radius-sm);
   display: flex;
   align-items: center;
@@ -323,13 +368,19 @@ const pageTitle = computed(() => {
   color: #fff;
   font-size: 1.125rem;
   flex-shrink: 0;
+  transition: transform var(--transition-base);
+}
+
+.brand-icon:hover {
+  transform: scale(1.05);
 }
 
 .brand-text {
-  font-weight: 700;
-  font-size: 1.15rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
   color: var(--color-text-primary);
   white-space: nowrap;
+  letter-spacing: -0.02em;
 }
 
 /* Navigation */
@@ -349,57 +400,83 @@ const pageTitle = computed(() => {
   gap: 2px;
 }
 
-.nav-link-custom {
+.nav-link {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.7rem 0.875rem;
+  padding: 0.675rem 0.75rem;
   border-radius: var(--border-radius-sm);
   color: var(--color-text-secondary);
   text-decoration: none;
   transition: all var(--transition-fast);
   white-space: nowrap;
   position: relative;
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
-.nav-link-custom:hover {
+.nav-link:hover {
   background: var(--color-primary-50);
   color: var(--color-primary-700);
 }
 
-.nav-link-custom.active {
+.nav-link.active {
   background: var(--color-primary-700);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(24, 95, 165, 0.25);
+}
+
+.nav-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: #fff;
+  border-radius: 0 3px 3px 0;
 }
 
 .nav-icon {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   width: 24px;
   text-align: center;
   flex-shrink: 0;
 }
 
-.nav-label-custom {
-  font-weight: 500;
-  font-size: 0.9rem;
+.nav-label {
+  font-size: 0.875rem;
 }
 
 /* Sidebar collapsed: show only icons */
-.sidebar-collapsed .nav-link-custom {
+.sidebar-collapsed .nav-link {
   justify-content: center;
-  padding: 0.7rem;
+  padding: 0.675rem;
+}
+
+.sidebar-collapsed .nav-link.active::before {
+  left: 2px;
+  width: 2px;
+  height: 16px;
 }
 
 /* Sidebar footer */
 .sidebar-footer {
   padding: 1rem 1.25rem;
   border-top: 1px solid var(--color-divider);
+  overflow: hidden;
 }
 
 .sidebar-user {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.sidebar-user-compact {
+  display: flex;
+  justify-content: center;
 }
 
 .sidebar-user-info {
@@ -409,15 +486,17 @@ const pageTitle = computed(() => {
 
 .sidebar-user-name {
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .sidebar-user-role {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* === MAIN WRAPPER === */
@@ -437,7 +516,7 @@ const pageTitle = computed(() => {
 /* === HEADER === */
 .app-header {
   height: var(--header-height);
-  background: #fff;
+  background: var(--color-bg-white);
   border-bottom: 1px solid var(--color-divider);
   display: flex;
   align-items: center;
@@ -452,78 +531,44 @@ const pageTitle = computed(() => {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-.header-toggle {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--color-divider);
-  border-radius: var(--border-radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: 1.2rem;
-}
-
-.header-toggle:hover {
-  background: var(--color-primary-50);
-  color: var(--color-primary-700);
-  border-color: var(--color-primary-200);
+.header-toggle .toggle-icon {
+  transition: transform var(--transition-base);
 }
 
 .header-title h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 600;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .header-icon-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: var(--border-radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: 1.2rem;
   position: relative;
-}
-
-.header-icon-btn:hover {
-  background: var(--color-primary-50);
-  color: var(--color-primary-700);
 }
 
 .notification-dot {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 8px;
+  right: 8px;
   width: 8px;
   height: 8px;
   background: var(--color-error-accent);
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: 2px solid var(--color-bg-white);
+  animation: pulse-dot 2s ease-in-out infinite;
 }
 
 /* User dropdown */
 .user-dropdown {
   position: relative;
-  cursor: pointer;
 }
 
 .user-dropdown-trigger {
@@ -532,6 +577,10 @@ const pageTitle = computed(() => {
   gap: 0.625rem;
   padding: 0.375rem 0.75rem;
   border-radius: var(--border-radius-sm);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-body);
   transition: background var(--transition-fast);
 }
 
@@ -542,17 +591,15 @@ const pageTitle = computed(() => {
 .user-dropdown-info {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   line-height: 1.3;
+  text-align: left;
 }
 
 .user-dropdown-name {
   font-weight: 600;
-  font-size: 0.875rem;
-}
-
-.user-dropdown-role {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  color: var(--color-text-primary);
 }
 
 .dropdown-arrow {
@@ -565,11 +612,11 @@ const pageTitle = computed(() => {
   transform: rotate(180deg);
 }
 
-.dropdown-menu-custom {
+.dropdown-menu {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
-  background: #fff;
+  background: var(--color-bg-white);
   border: 1px solid var(--color-divider);
   border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-lg);
@@ -578,27 +625,23 @@ const pageTitle = computed(() => {
   overflow: hidden;
 }
 
-.dropdown-header-custom {
+.dropdown-header {
   padding: 1rem 1.125rem;
 }
 
 .dropdown-user-name {
   font-weight: 600;
+  font-size: 0.9375rem;
   margin-bottom: 0.25rem;
 }
 
 .dropdown-user-email {
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   color: var(--color-text-secondary);
   margin: 0;
 }
 
-.dropdown-divider-custom {
-  height: 1px;
-  background: var(--color-divider);
-}
-
-.dropdown-item-custom {
+.dropdown-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -607,14 +650,19 @@ const pageTitle = computed(() => {
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
   color: var(--color-text-secondary);
   transition: all var(--transition-fast);
 }
 
-.dropdown-item-custom:hover {
-  background: var(--color-primary-50);
+.dropdown-item:hover {
+  background: var(--color-error-bg);
   color: var(--color-error-accent);
+}
+
+.dropdown-item i {
+  font-size: 1rem;
 }
 
 /* Dropdown transition */
@@ -622,11 +670,10 @@ const pageTitle = computed(() => {
 .dropdown-leave-active {
   transition: all 0.2s ease;
 }
-
 .dropdown-enter-from,
 .dropdown-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-8px) scale(0.98);
 }
 
 /* === MAIN CONTENT === */
@@ -635,26 +682,34 @@ const pageTitle = computed(() => {
   padding: 1.5rem;
   overflow-y: auto;
   background: var(--color-bg-page);
+  animation: fade-in 0.3s ease;
 }
 
-/* === TOAST TRANSITIONS === */
+/* === TOAST LIST TRANSITIONS === */
 .toast-list-enter-active,
 .toast-list-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.35s ease;
 }
-
 .toast-list-enter-from {
   opacity: 0;
   transform: translateX(100%);
 }
-
 .toast-list-leave-to {
   opacity: 0;
   transform: translateX(100%);
 }
-
 .toast-list-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.35s ease;
+}
+
+/* === FADE TRANSITION FOR OVERLAY === */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* === RESPONSIVE === */
@@ -686,7 +741,13 @@ const pageTitle = computed(() => {
   }
 
   .header-title h2 {
-    font-size: 1.1rem;
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .sidebar {
+    left: 0 !important;
   }
 }
 </style>

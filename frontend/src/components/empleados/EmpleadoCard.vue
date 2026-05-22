@@ -1,6 +1,6 @@
 <template>
-  <div class="empleado-card">
-    <div class="card-header">
+  <div class="empleado-card card p-0">
+    <div class="card-header-avatar">
       <div class="avatar-container">
         <img
           v-if="empleado.foto_facial"
@@ -8,14 +8,14 @@
           alt="Foto de empleado"
           class="avatar-img"
         >
-        <div v-else class="avatar-placeholder">
-          {{ (empleado.nombres ? empleado.nombres.charAt(0) : '?') }}{{ (empleado.apellidos ? empleado.apellidos.charAt(0) : '?') }}
+        <div v-else class="avatar-placeholder avatar-lg">
+          {{ getInitials }}
         </div>
       </div>
       <div class="card-info">
         <h3 class="empleado-name">{{ empleado.nombres }} {{ empleado.apellidos }}</h3>
         <p class="empleado-cargo">{{ empleado.cargo }}</p>
-        <span :class="['empleado-status', empleado.activo ? 'status-activo' : 'status-inactivo']">
+        <span :class="['badge', empleado.activo ? 'badge-success' : 'badge-error']">
           {{ empleado.activo ? 'Activo' : 'Inactivo' }}
         </span>
       </div>
@@ -23,19 +23,19 @@
 
     <div class="card-body">
       <div class="info-row">
-        <span class="info-label">Cédula:</span>
+        <span class="info-label"><i class="bi bi-person-vcard me-2"></i>Cédula</span>
         <span class="info-value">{{ empleado.cedula }}</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Email:</span>
+        <span class="info-label"><i class="bi bi-envelope me-2"></i>Email</span>
         <span class="info-value">{{ empleado.email }}</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Salario:</span>
+        <span class="info-label"><i class="bi bi-coin me-2"></i>Salario</span>
         <span class="info-value">{{ formatoMoneda(empleado.salario_base) }}</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Contrato:</span>
+        <span class="info-label"><i class="bi bi-file-text me-2"></i>Contrato</span>
         <span class="info-value">{{ obtenerTipoContrato(empleado.tipo_contrato) }}</span>
       </div>
     </div>
@@ -43,14 +43,16 @@
     <div class="card-footer">
       <router-link
         :to="`/empleados/editar/${empleado.id}`"
-        class="btn btn-edit"
+        class="btn btn-outline-primary btn-sm"
       >
+        <i class="bi bi-pencil"></i>
         Editar
       </router-link>
       <button
         @click="eliminarEmpleado(empleado.id)"
-        class="btn btn-delete"
+        class="btn btn-outline-danger btn-sm"
       >
+        <i class="bi bi-trash"></i>
         Eliminar
       </button>
     </div>
@@ -71,8 +73,8 @@ export default {
       return new Intl.NumberFormat('es-CO', {
         style: 'currency',
         currency: 'COP'
-      }).format(valor);
-    };
+      }).format(valor)
+    }
 
     const obtenerTipoContrato = (tipo) => {
       const tipos = {
@@ -80,32 +82,31 @@ export default {
         'TERMINO_INDEFINIDO': 'Término Indefinido',
         'OBRA_LABOR': 'Obra Labor',
         'PRESTACION_SERVICIOS': 'Prestación de Servicios'
-      };
-      return tipos[tipo] || tipo;
-    };
+      }
+      return tipos[tipo] || tipo
+    }
 
     const eliminarEmpleado = (id) => {
       if (confirm('¿Está seguro de eliminar este empleado?')) {
-        emit('empleado-eliminado', id);
+        emit('empleado-eliminado', id)
       }
-    };
+    }
 
     return {
       formatoMoneda,
       obtenerTipoContrato,
-      eliminarEmpleado
-    };
+      eliminarEmpleado,
+      getInitials: (props.empleado.nombres ? props.empleado.nombres.charAt(0) : '?') +
+        (props.empleado.apellidos ? props.empleado.apellidos.charAt(0) : '?')
+    }
   }
 }
 </script>
 
 <style scoped>
 .empleado-card {
-  background: var(--color-bg-page);
-  border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -113,90 +114,59 @@ export default {
 
 .empleado-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
 }
 
-.card-header {
+.card-header-avatar {
   background: linear-gradient(135deg, var(--color-primary-700), var(--color-primary-500));
   color: white;
   padding: 1.5rem;
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 .avatar-container {
-  position: relative;
-  width: 60px;
-  height: 60px;
   flex-shrink: 0;
 }
 
 .avatar-img {
-  width: 100%;
-  height: 100%;
+  width: 64px;
+  height: 64px;
   object-fit: cover;
   border-radius: 50%;
-  border: 3px solid var(--color-primary-50);
-}
-
-.avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  background: var(--color-primary-200);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 1.5rem;
-  color: var(--color-primary-700);
-  border: 3px solid var(--color-primary-50);
+  border: 3px solid rgba(255, 255, 255, 0.3);
 }
 
 .card-info {
   flex: 1;
+  min-width: 0;
 }
 
 .empleado-name {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
+  margin: 0 0 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #fff;
 }
 
 .empleado-cargo {
-  margin: 0 0 0.75rem 0;
-  opacity: 0.9;
-  font-size: 0.95rem;
-}
-
-.empleado-status {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.status-activo {
-  background: var(--color-semantic-success-bg);
-  color: var(--color-semantic-success-accent);
-}
-
-.status-inactivo {
-  background: var(--color-semantic-error-bg);
-  color: var(--color-semantic-error-accent);
+  margin: 0 0 0.75rem;
+  opacity: 0.85;
+  font-size: 0.875rem;
 }
 
 .card-body {
   flex: 1;
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
 }
 
 .info-row {
   display: flex;
   justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-neutral-divider);
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--color-divider);
+  font-size: 0.875rem;
 }
 
 .info-row:last-child {
@@ -204,78 +174,45 @@ export default {
 }
 
 .info-label {
-  color: var(--color-neutral-text-secondary);
-  font-weight: 500;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.info-label i {
+  font-size: 0.875rem;
 }
 
 .info-value {
   font-weight: 600;
-  color: var(--color-neutral-text-primary);
+  color: var(--color-text-primary);
+  text-align: right;
 }
 
 .card-footer {
-  padding: 1.5rem;
   display: flex;
-  gap: 1rem;
-  border-top: 1px solid var(--color-neutral-divider);
-  background: var(--color-primary-50);
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: var(--color-bg-subtle);
+  border-top: 1px solid var(--color-divider);
 }
 
-.btn {
+.card-footer .btn {
   flex: 1;
-  padding: 0.75rem;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
 }
 
-.btn-edit {
-  background: var(--color-secondary-500);
-  color: white;
-}
-
-.btn-edit:hover {
-  background: var(--color-secondary-700);
-  transform: translateY(-2px);
-}
-
-.btn-delete {
-  background: var(--color-semantic-error-bg);
-  color: var(--color-semantic-error-accent);
-  border: 1px solid var(--color-semantic-error-accent);
-}
-
-.btn-delete:hover {
-  background: var(--color-semantic-error-accent);
-  color: white;
-  transform: translateY(-2px);
-}
-
-/* Responsive design */
 @media (max-width: 640px) {
-  .card-header {
+  .card-header-avatar {
     flex-direction: column;
     text-align: center;
-    gap: 1rem;
   }
-
   .card-info {
     text-align: center;
   }
-
   .info-row {
     flex-direction: column;
-    gap: 0.5rem;
-    align-items: flex-start;
+    gap: 0.25rem;
   }
-
-  .info-label {
-    width: 80px;
-  }
-
   .card-footer {
     flex-direction: column;
   }

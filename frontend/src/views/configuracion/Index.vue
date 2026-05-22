@@ -1,187 +1,161 @@
 <template>
-  <div class="container mt-4">
-    <h2>Configuración del Sistema</h2>
-    <p class="text-muted mb-4">Administre los parámetros del sistema de nómina y seguridad</p>
-
-    <div class="row g-4">
-      <!-- SMMLV Configuration -->
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header bg-success text-white">
-            <h5 class="mb-0">Parametrización SMMLV</h5>
-          </div>
-          <div class="card-body">
-            <form @submit.prevent="actualizarSMMLV" class="row g-3 needs-validation" novalidate>
-              <div class="col-md-6">
-                <label for="smmlv" class="form-label">SMMLV *</label>
-                <input
-                  type="number"
-                  class="form-control"
-                  id="smmlv"
-                  v-model.number="config.smmlv"
-                  required
-                  min="0"
-                >
-                <div class="invalid-feedback">Ingrese el valor del SMMLV</div>
-              </div>
-
-              <div class="col-md-6">
-                <label for="fechaVigencia" class="form-label">Fecha de Vigencia *</label>
-                <input
-                  type="date"
-                  class="form-control"
-                  id="fechaVigencia"
-                  v-model="config.fechaVigencia"
-                  required
-                >
-                <div class="invalid-feedback">Seleccione la fecha de vigencia</div>
-              </div>
-
-              <div class="col-12">
-                <label for="observaciones" class="form-label">Observaciones</label>
-                <textarea
-                  class="form-control"
-                  id="observaciones"
-                  rows="3"
-                  v-model="config.observaciones"
-                ></textarea>
-              </div>
-
-              <div class="col-12 d-grid">
-                <button
-                  type="submit"
-                  class="btn btn-success"
-                >
-                  Actualizar Configuración
-                </button>
-              </div>
-            </form>
-
-            <div v-if="configActualizada" class="alert alert-success mt-3">
-              Configuración actualizada exitosamente el {{ ultimaActualizacion }}
-            </div>
-          </div>
+  <div class="page-container">
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
         </div>
-      </div>
-
-      <!-- Contribution Rates -->
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header bg-info text-white">
-            <h5 class="mb-0">Porcentajes de Aportes y Deducciones</h5>
-          </div>
-          <div class="card-body">
-            <form @submit.prevent="actualizarPorcentajes" class="row g-3 needs-validation" novalidate>
-              <div class="col-md-4">
-                <label for="salud" class="form-label">Salud (%) *</label>
-                <input
-                  type="number"
-                  class="form-control"
-                  id="salud"
-                  v-model.number="porcentajes.salud"
-                  required
-                  min="0"
-                  max="100"
-                  step="0.01"
-                >
-                <div class="invalid-feedback">Ingrese el porcentaje de salud</div>
-              </div>
-
-              <div class="col-md-4">
-                <label for="pension" class="form-label">Pensión (%) *</label>
-                <input
-                  type="number"
-                  class="form-control"
-                  id="pension"
-                  v-model.number="porcentajes.pension"
-                  required
-                  min="0"
-                  max="100"
-                  step="0.01"
-                >
-                <div class="invalid-feedback">Ingrese el porcentaje de pensión</div>
-              </div>
-
-              <div class="col-md-4">
-                <label for="arl" class="form-label">ARL (%) *</label>
-                <input
-                  type="number"
-                  class="form-control"
-                  id="arl"
-                  v-model.number="porcentajes.arl"
-                  required
-                  min="0"
-                  max="100"
-                  step="0.01"
-                >
-                <div class="invalid-feedback">Ingrese el porcentaje de ARL</div>
-              </div>
-
-              <div class="col-12 d-grid">
-                <button
-                  type="submit"
-                  class="btn btn-info"
-                >
-                  Actualizar Porcentajes
-                </button>
-              </div>
-            </form>
-
-            <div v-if="porcentajesActualizados" class="alert alert-info mt-3">
-              Porcentajes actualizados exitosamente
-            </div>
-          </div>
+        <div>
+          <h1 class="page-title">Configuración del Sistema</h1>
+          <p class="page-description">Administre parámetros del sistema de nómina y seguridad</p>
         </div>
       </div>
     </div>
 
-    <!-- Role-Based Access Summary -->
-    <div class="row g-4 mt-4">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-header bg-warning text-white">
-            <h5 class="mb-0">Resumen de Control de Acceso por Rol</h5>
+    <div class="grid-2">
+      <!-- SMMLV Configuration -->
+      <div class="card card-success">
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </span>
+            <h3>Parametrización SMMLV</h3>
           </div>
-          <div class="card-body">
-            <div class="table-responsive">
-              <table class="table table-hover align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th>Rol</th>
-                    <th>Módulos Accesibles</th>
-                    <th>Color UI</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td><span class="badge bg-primary">Administrador RRHH</span></td>
-                    <td>Gestión de empleados, Desprendibles, Credenciales, Aprobación manual</td>
-                    <td><span class="badge bg-primary" style="background: #185FA5 !important; color: white;">#185FA5</span></td>
-                  </tr>
-                  <tr>
-                    <td><span class="badge bg-success">Empleado</span></td>
-                    <td>Registro de asistencia, Portal personal</td>
-                    <td><span class="badge bg-success" style="background: #378ADD !important; color: white;">#378ADD</span></td>
-                  </tr>
-                  <tr>
-                    <td><span class="badge bg-info">Contador</span></td>
-                    <td>Liquidación de nómina, Exportación ACH/Excel</td>
-                    <td><span class="badge bg-info" style="background: #3B6D11 !important; color: white;">#3B6D11</span></td>
-                  </tr>
-                  <tr>
-                    <td><span class="badge bg-danger">Gerente</span></td>
-                    <td>Dashboard de reportes, Reportes filtrables</td>
-                    <td><span class="badge bg-danger" style="background: #042C53 !important; color: white;">#042C53</span></td>
-                  </tr>
-                  <tr>
-                    <td><span class="badge bg-secondary">Administrador Sistema</span></td>
-                    <td>Auditoría de cambios, Parametrización SMMLV, Control de acceso</td>
-                    <td><span class="badge bg-secondary" style="background: #2C2C2A !important; color: white;">#2C2C2A</span></td>
-                  </tr>
-                </tbody>
-              </table>
+        </div>
+        <div class="card-body">
+          <form @submit.prevent="actualizarSMMLV" class="form-grid">
+            <div class="form-group">
+              <label class="form-label">SMMLV <span class="required">*</span></label>
+              <div class="input-prefix">
+                <span class="prefix">$</span>
+                <input type="number" v-model.number="config.smmlv" required min="0" class="form-input prefix-input">
+              </div>
             </div>
+            <div class="form-group">
+              <label class="form-label">Vigencia <span class="required">*</span></label>
+              <input type="date" v-model="config.fechaVigencia" required class="form-input">
+            </div>
+            <div class="form-group full-width">
+              <label class="form-label">Observaciones</label>
+              <textarea v-model="config.observaciones" rows="3" class="form-input" placeholder="Notas sobre esta configuración..."></textarea>
+            </div>
+            <div class="form-group full-width">
+              <button type="submit" class="btn btn-primary btn-block">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Actualizar SMMLV
+              </button>
+            </div>
+          </form>
+          <transition name="fade">
+            <div v-if="configActualizada" class="alert alert-success">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Configuración actualizada — {{ ultimaActualizacion }}
+            </div>
+          </transition>
+        </div>
+      </div>
+
+      <!-- Contribution Rates -->
+      <div class="card card-info">
+        <div class="card-header">
+          <div class="card-header-left">
+            <span class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </span>
+            <h3>Porcentajes de Aportes</h3>
           </div>
+        </div>
+        <div class="card-body">
+          <form @submit.prevent="actualizarPorcentajes" class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Salud (%) <span class="required">*</span></label>
+              <div class="input-suffix">
+                <input type="number" v-model.number="porcentajes.salud" required min="0" max="100" step="0.01" class="form-input suffix-input">
+                <span class="suffix">%</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pensión (%) <span class="required">*</span></label>
+              <div class="input-suffix">
+                <input type="number" v-model.number="porcentajes.pension" required min="0" max="100" step="0.01" class="form-input suffix-input">
+                <span class="suffix">%</span>
+              </div>
+            </div>
+            <div class="form-group full-width">
+              <label class="form-label">ARL (%) <span class="required">*</span></label>
+              <div class="input-suffix">
+                <input type="number" v-model.number="porcentajes.arl" required min="0" max="100" step="0.01" class="form-input suffix-input">
+                <span class="suffix">%</span>
+              </div>
+            </div>
+            <div class="form-group full-width">
+              <button type="submit" class="btn btn-primary btn-block">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Actualizar Porcentajes
+              </button>
+            </div>
+          </form>
+          <transition name="fade">
+            <div v-if="porcentajesActualizados" class="alert alert-info">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Porcentajes actualizados exitosamente
+            </div>
+          </transition>
+        </div>
+      </div>
+    </div>
+
+    <!-- Access Control Summary -->
+    <div class="card" style="margin-top: 1.5rem;">
+      <div class="card-header">
+        <div class="card-header-left">
+          <span class="card-icon" style="background: var(--color-neutral-text-primary);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
+          <h3>Control de Acceso por Rol</h3>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Rol</th>
+                <th>Módulos Accesibles</th>
+                <th>Color UI</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="rol in roles" :key="rol.nombre" class="data-row">
+                <td>
+                  <span class="role-badge" :style="{ background: rol.color + '20', color: rol.color, border: '1px solid ' + rol.color + '40' }">
+                    <span class="role-dot" :style="{ background: rol.color }"></span>
+                    {{ rol.nombre }}
+                  </span>
+                </td>
+                <td>
+                  <div class="role-modules">
+                    <span v-for="mod in rol.modulos" :key="mod" class="module-chip">{{ mod }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="color-swatch" :style="{ background: rol.color }">{{ rol.color }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -193,148 +167,116 @@ import { ref } from 'vue'
 
 export default {
   setup() {
-    const config = ref({
-      smmlv: 1160000, // Valor SMMLV 2024 en Colombia
-      fechaVigencia: '2024-01-01',
-      observaciones: 'Valor legalmente establecido para el año 2024'
-    })
-
-    const porcentajes = ref({
-      salud: 4.0,
-      pension: 4.0,
-      arl: 0.5 // ARL varía según riesgo, promedio bajo
-    })
-
+    const config = ref({ smmlv: 1160000, fechaVigencia: '2024-01-01', observaciones: 'Valor SMMLV 2024 legalmente establecido' })
+    const porcentajes = ref({ salud: 4.0, pension: 4.0, arl: 0.5 })
     const configActualizada = ref(false)
     const porcentajesActualizados = ref(false)
     const ultimaActualizacion = ref('')
 
+    const roles = [
+      { nombre: 'Administrador RRHH', color: '#185FA5', modulos: ['Gestión empleados', 'Desprendibles', 'Credenciales', 'Aprobación manual'] },
+      { nombre: 'Empleado', color: '#378ADD', modulos: ['Registro asistencia', 'Portal personal'] },
+      { nombre: 'Contador', color: '#3B6D11', modulos: ['Liquidación nómina', 'Exportación ACH/Excel'] },
+      { nombre: 'Gerente', color: '#042C53', modulos: ['Dashboard reportes', 'Reportes filtrables'] },
+      { nombre: 'Admin. Sistema', color: '#2C2C2A', modulos: ['Auditoría', 'Parametrización', 'Control acceso'] }
+    ]
+
     const actualizarSMMLV = () => {
       configActualizada.value = true
       ultimaActualizacion.value = new Date().toLocaleString()
-
-      // En producción: enviar al API para actualizar en base de datos
-      // await axios.put('/api/configuracion/smmlv', config.value)
-
-      alert('Configuración SMMLV actualizada en el sistema')
+      setTimeout(() => { configActualizada.value = false }, 4000)
     }
 
     const actualizarPorcentajes = () => {
       porcentajesActualizados.value = true
-
-      // En producción: enviar al API para actualizar en base de datos
-      // await axios.put('/api/configuracion/porcentajes', porcentajes.value)
-
-      alert('Porcentajes actualizados en el sistema')
+      setTimeout(() => { porcentajesActualizados.value = false }, 4000)
     }
 
-    return {
-      config,
-      porcentajes,
-      configActualizada,
-      porcentajesActualizados,
-      ultimaActualizacion,
-      actualizarSMMLV,
-      actualizarPorcentajes
-    }
+    return { config, porcentajes, configActualizada, porcentajesActualizados, ultimaActualizacion, roles, actualizarSMMLV, actualizarPorcentajes }
   }
 }
 </script>
 
 <style scoped>
-.container {
-  max-width: 1000px;
-}
+.page-container { max-width: 1000px; margin: 0 auto; }
 
-.card {
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
+.page-header { margin-bottom: 2rem; }
+.page-header-content { display: flex; align-items: center; gap: 1rem; }
+.page-header-icon { width: 44px; height: 44px; background: var(--color-primary-50); color: var(--color-primary-700); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.page-title { font-family: 'Young Serif', Georgia, serif; font-size: 1.5rem; color: var(--color-neutral-text-primary); margin: 0; }
+.page-description { color: var(--color-neutral-text-secondary); margin: 0.15rem 0 0 0; font-size: 0.875rem; }
 
-.card-header {
-  border-radius: 12px 12px 0 0 !important;
-  padding: 1rem 1.5rem;
-}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
 
-.card-header h5 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
+.card { background: white; border: 1px solid var(--color-neutral-divider); border-radius: 12px; overflow: hidden; }
+.card-success { border-top: 3px solid var(--color-secondary-700); }
+.card-info { border-top: 3px solid var(--color-primary-500); }
 
-.card-body {
-  padding: 1.5rem;
-}
+.card-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-neutral-divider); display: flex; align-items: center; justify-content: space-between; }
+.card-header-left { display: flex; align-items: center; gap: 0.75rem; }
+.card-header-left h3 { font-family: 'Young Serif', Georgia, serif; font-size: 0.95rem; margin: 0; color: var(--color-neutral-text-primary); }
 
-.form-control {
-  border-radius: 8px;
-  border: 1px solid var(--color-neutral-border);
-}
+.card-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
+.card-success .card-icon { background: var(--color-secondary-700); }
+.card-info .card-icon { background: var(--color-primary-500); }
 
-.form-control:focus {
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 0.25rem rgba(55, 138, 171, 0.25);
-}
+.card-body { padding: 1.25rem; }
+.card-body.p-0 { padding: 0; }
 
-.form-select {
-  border-radius: 8px;
-  border: 1px solid var(--color-neutral-border);
-}
+/* Form */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.form-group.full-width { grid-column: 1 / -1; }
+.form-label { font-size: 0.75rem; font-weight: 600; color: var(--color-neutral-text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+.required { color: var(--color-error-accent); }
 
-.form-select:focus {
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 0.25rem rgba(55, 138, 171, 0.25);
-}
+.form-input { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid var(--color-neutral-border); border-radius: 8px; font-size: 0.875rem; color: var(--color-neutral-text-primary); background: white; transition: all 0.2s; font-family: inherit; box-sizing: border-box; }
+.form-input:focus { outline: none; border-color: var(--color-primary-500); box-shadow: 0 0 0 3px rgba(55, 138, 222, 0.15); }
 
-.btn-success {
-  background: var(--color-secondary-700);
-  border-color: var(--color-secondary-700);
-}
+.input-prefix, .input-suffix { display: flex; align-items: center; }
+.prefix, .suffix { padding: 0.6rem 0.75rem; background: var(--color-neutral-bg-page); border: 1px solid var(--color-neutral-border); font-size: 0.875rem; color: var(--color-neutral-text-secondary); font-weight: 500; }
+.prefix { border-right: none; border-radius: 8px 0 0 8px; }
+.suffix { border-left: none; border-radius: 0 8px 8px 0; }
+.prefix-input { border-radius: 0 8px 8px 0 !important; }
+.suffix-input { border-radius: 8px 0 0 8px !important; }
 
-.btn-success:hover {
-  background: var(--color-secondary-900);
-  border-color: var(--color-secondary-900);
-  transform: translateY(-2px);
-}
+textarea.form-input { resize: vertical; min-height: 70px; }
 
-.btn-info {
-  background: var(--color-primary-500);
-  border-color: var(--color-primary-500);
-}
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.65rem 1.25rem; border: none; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.btn-primary { background: var(--color-primary-700); color: white; }
+.btn-primary:hover { background: var(--color-primary-900); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(24, 95, 165, 0.3); }
+.btn-block { width: 100%; }
 
-.btn-info:hover {
-  background: var(--color-primary-700);
-  border-color: var(--color-primary-700);
-  transform: translateY(-2px);
-}
+/* Alert */
+.alert { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: 8px; margin-top: 1rem; font-size: 0.825rem; font-weight: 500; }
+.alert-success { background: var(--color-semantic-success-bg, #EAF3DE); color: var(--color-semantic-success-accent, #3B6D11); border: 1px solid rgba(59, 109, 17, 0.15); }
+.alert-info { background: var(--color-semantic-info-bg, #E6F1FB); color: var(--color-semantic-info-accent, #185FA5); border: 1px solid rgba(24, 95, 165, 0.15); }
 
-.alert {
-  border: none;
-  border-radius: 8px;
-  padding: 1rem;
-  margin: 1rem 0;
-}
+.fade-enter-active, .fade-leave-active { transition: all 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-4px); }
 
-.badge {
-  font-weight: 500;
-  padding: 0.35em 0.65em;
-  font-size: 0.85rem;
-}
+/* Table */
+.table-wrapper { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { background: var(--color-neutral-bg-page); padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-neutral-text-secondary); border-bottom: 2px solid var(--color-neutral-divider); }
+.data-table td { padding: 0.75rem 1rem; font-size: 0.85rem; color: var(--color-neutral-text-primary); border-bottom: 1px solid var(--color-neutral-divider); }
+.data-row { transition: background 0.15s; }
+.data-row:hover { background: var(--color-primary-50); }
+.data-row:last-child td { border-bottom: none; }
 
-/* Responsive design */
-@media (max-width: 768px) {
-  .row {
-    flex-direction: column;
-  }
+.role-badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.7rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.role-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-  .col-md-6 {
-    width: 100%;
-    margin-bottom: 1.5rem;
-  }
+.role-modules { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.module-chip { padding: 0.2rem 0.5rem; background: var(--color-neutral-bg-page); border-radius: 5px; font-size: 0.72rem; color: var(--color-neutral-text-secondary); font-weight: 500; }
 
-  .card-body {
-    padding: 1rem;
-  }
+.color-swatch { font-family: 'Space Mono', monospace; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 5px; color: white; font-weight: 500; }
+
+@media (max-width: 640px) {
+  .page-header-content { flex-direction: column; text-align: center; }
+  .form-grid { grid-template-columns: 1fr; }
+  .role-modules { flex-direction: column; }
 }
 </style>

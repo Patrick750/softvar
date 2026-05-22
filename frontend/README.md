@@ -1,38 +1,32 @@
-# frontend
+# Frontend — SoftVar
 
-This template should help get you started developing with Vue 3 in Vite.
+Este directorio contiene el frontend del **Sistema de Control de Asistencia y Nómina**.
 
-## Recommended IDE Setup
+> Para documentación completa del proyecto, consulta el [`README.md`](../README.md) en la raíz.
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Stack
 
-## Recommended Browser Setup
+- **Vue 3** + **Composition API**
+- **Vue Router** (SPA con rutas protegidas por rol)
+- **Vite** (bundler)
+- **Chart.js** (gráficas interactivas)
+- **Axios** (cliente HTTP)
+- **jsPDF** (generación de PDF)
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## Comandos
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
+```bash
+npm install       # Instalar dependencias
+npm run dev       # Servidor de desarrollo (localhost:5173)
+npm run build     # Build producción
+npm run preview   # Vista previa del build
 ```
 
-### Compile and Hot-Reload for Development
+## Sistema de diseño
 
-```sh
-npm run dev
-```
+El frontend implementa un sistema de diseño corporativo definido en `../CLAUDE.md`:
 
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
+- **Paleta:** Azul primario (`#185FA5`) + Verde secundario (`#3B6D11`) + Neutros
+- **Tipografía:** Work Sans (cuerpo) + Young Serif (títulos)
+- **Micro-interacciones:** Animaciones CSS, hover states, transiciones
+- **Responsive:** Adaptable a desktop, tablet y móvil

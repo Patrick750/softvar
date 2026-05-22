@@ -11,50 +11,57 @@
 
       <div class="auth-card">
         <div class="auth-card-body">
-          <!-- Success -->
-          <div v-if="success" class="auth-success">
-            <div class="success-icon">
-              <i class="bi bi-check-lg"></i>
-            </div>
-            <h4>Correo Enviado</h4>
-            <p>{{ message }}</p>
-          </div>
+          <template v-if="success">
+            <Transition name="fade">
+              <div class="text-center py-3">
+                <div class="success-icon mb-3">
+                  <i class="bi bi-check-lg"></i>
+                </div>
+                <h4>Correo Enviado</h4>
+                <p class="text-muted mt-2">{{ message }}</p>
+              </div>
+            </Transition>
+          </template>
 
-          <!-- Form -->
-          <form v-else @submit.prevent="onSubmit" novalidate>
+          <template v-else>
+            <form @submit.prevent="onSubmit" novalidate>
+            <p class="auth-desc">Ingrese su correo electrónico registrado y le enviaremos un enlace para restablecer su contraseña.</p>
+
             <div class="form-group">
-              <label class="form-label-modern" for="email">Correo Electrónico</label>
+              <label class="form-label" for="email">Correo Electrónico</label>
               <div class="input-with-icon">
-                <i class="bi bi-envelope"></i>
+                <i class="bi bi-envelope input-icon"></i>
                 <input
                   type="email"
-                  class="form-control-modern"
+                  class="form-input"
                   id="email"
                   v-model="form.email"
                   placeholder="mi.correo@empresa.com"
                   required
                   autofocus
+                  autocomplete="email"
                 >
               </div>
             </div>
 
-            <button type="submit" class="auth-btn" :disabled="loading">
-              <span v-if="loading" class="spinner-custom"></span>
-              <span v-else>Enviar Enlace de Recuperación</span>
+            <button type="submit" class="btn btn-primary btn-block btn-lg" :disabled="loading">
+              <span v-if="loading" class="spinner spinner-sm"></span>
+              <span v-else>Enviar Enlace</span>
             </button>
           </form>
+          </template>
         </div>
 
         <div class="auth-card-footer">
           <router-link to="/login" class="auth-link">
-            <i class="bi bi-arrow-left me-1"></i>
+            <i class="bi bi-arrow-left me-2"></i>
             Volver al Inicio de Sesión
           </router-link>
         </div>
       </div>
 
       <p class="auth-footer-text">
-        &copy; 2026 SoftVar — Control de Asistencia y Nómina v1.0
+        &copy; 2026 SoftVar &mdash; Control de Asistencia y Nómina v1.0
       </p>
     </div>
   </div>
@@ -94,7 +101,8 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary-900) 0%, var(--color-primary-700) 100%);
+  background:
+    linear-gradient(135deg, var(--color-primary-900) 0%, var(--color-primary-700) 50%, var(--color-primary-500) 100%);
   padding: 2rem 1rem;
   position: relative;
   overflow: hidden;
@@ -103,12 +111,11 @@ export default {
 .auth-page::before {
   content: '';
   position: absolute;
-  width: 500px;
-  height: 500px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.03);
-  top: -150px;
-  right: -150px;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
 }
 
 .auth-container {
@@ -121,52 +128,63 @@ export default {
 .auth-brand {
   text-align: center;
   margin-bottom: 2rem;
+  animation: slide-in-up 0.5s ease both;
 }
 
 .auth-logo {
-  width: 64px;
-  height: 64px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border-radius: 18px;
+  width: 68px;
+  height: 68px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 1rem;
   font-size: 1.75rem;
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .auth-title {
+  font-family: var(--font-display);
   font-size: 1.5rem;
-  font-weight: 700;
   color: #fff;
   margin-bottom: 0.25rem;
 }
 
 .auth-subtitle {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.875rem;
   margin: 0;
 }
 
 .auth-card {
-  background: #fff;
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-xl);
+  background: var(--color-bg-white);
+  border-radius: var(--border-radius-xl);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.2);
   overflow: hidden;
+  animation: slide-in-up 0.5s ease both;
+  animation-delay: 0.1s;
 }
 
 .auth-card-body {
-  padding: 2rem;
+  padding: 2rem 2rem 1.5rem;
+}
+
+.auth-desc {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
 }
 
 .auth-card-footer {
   padding: 1rem 2rem;
   text-align: center;
   border-top: 1px solid var(--color-divider);
-  background: var(--color-bg-page);
+  background: var(--color-bg-subtle);
 }
 
 .auth-link {
@@ -174,6 +192,7 @@ export default {
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 500;
+  transition: color var(--transition-fast);
 }
 
 .auth-link:hover {
@@ -183,66 +202,11 @@ export default {
 
 .auth-footer-text {
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.75rem;
   margin-top: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.input-with-icon {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-with-icon > .bi {
-  position: absolute;
-  left: 0.875rem;
-  color: var(--color-text-secondary);
-  font-size: 1rem;
-  z-index: 2;
-}
-
-.input-with-icon .form-control-modern {
-  padding-left: 2.5rem;
-  width: 100%;
-}
-
-.auth-btn {
-  width: 100%;
-  padding: 0.75rem;
-  background: var(--color-primary-700);
-  color: #fff;
-  border: none;
-  border-radius: var(--border-radius-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 46px;
-  font-size: 0.95rem;
-}
-
-.auth-btn:hover:not(:disabled) {
-  background: var(--color-primary-900);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(24, 95, 165, 0.3);
-}
-
-.auth-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-/* Success state */
-.auth-success {
-  text-align: center;
-  padding: 1rem 0;
+  animation: fade-in 0.5s ease both;
+  animation-delay: 0.3s;
 }
 
 .success-icon {
@@ -255,17 +219,21 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  margin: 0 auto 1rem;
+  margin: 0 auto;
 }
 
-.auth-success h4 {
-  margin-bottom: 0.5rem;
+@keyframes slide-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.auth-success p {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  margin: 0;
-  line-height: 1.5;
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .auth-card-body { padding: 1.5rem; }
+  .auth-card-footer { padding: 0.875rem 1.5rem; }
 }
 </style>
