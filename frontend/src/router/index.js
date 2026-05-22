@@ -6,7 +6,20 @@ import EmpleadoForm from '@/views/empleados/EmpleadoForm.vue'
 const routes = [
   {
     path: '/',
-    redirect: '/empleados'
+    name: 'home',
+    redirect: () => {
+      const userRole = localStorage.getItem('userRole')
+      if (userRole === 'EMPLEADO') {
+        return '/portal-personal'
+      }
+      return '/empleados'
+    }
+  },
+  {
+    path: '/portal-personal',
+    name: 'portal-personal',
+    component: () => import('@/views/empleados/PortalPersonal.vue'),
+    meta: { requiresAuth: true, roles: ['EMPLEADO', 'ADMIN_RRHH', 'CONTADOR', 'GERENTE', 'ADMIN_SISTEMA'] }
   },
   {
     path: '/empleados',
@@ -24,6 +37,12 @@ const routes = [
     path: '/empleados/editar/:id',
     name: 'empleados-editar',
     component: EmpleadoForm,
+    meta: { requiresAuth: true, roles: ['ADMIN_RRHH'] }
+  },
+  {
+    path: '/asistencia/aprobaciones',
+    name: 'asistencia-aprobaciones',
+    component: () => import('@/views/asistencia/AprobacionesAsistencia.vue'),
     meta: { requiresAuth: true, roles: ['ADMIN_RRHH'] }
   },
   {

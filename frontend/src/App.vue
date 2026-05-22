@@ -29,14 +29,20 @@ onMounted(() => window.addEventListener('resize', handleResize))
 onUnmounted(() => window.removeEventListener('resize', handleResize))
 
 // === Navigation items ===
-const navItems = [
-  { icon: 'bi-house-door', label: 'Dashboard', to: '/' },
-  { icon: 'bi-people', label: 'Empleados', to: '/empleados' },
-  { icon: 'bi-clock-history', label: 'Asistencia', to: '/asistencia' },
-  { icon: 'bi-cash-stack', label: 'Nómina', to: '/nomina' },
-  { icon: 'bi-file-earmark-bar-graph', label: 'Reportes', to: '/reportes' },
-  { icon: 'bi-gear', label: 'Configuración', to: '/configuracion' }
-]
+const navItems = computed(() => {
+  const role = user.value.role
+  const items = [
+    { icon: 'bi-house-door', label: 'Inicio', to: '/' },
+    { icon: 'bi-person-circle', label: 'Mi Portal', to: '/portal-personal' },
+    { icon: 'bi-people', label: 'Empleados', to: '/empleados', roles: ['ADMIN_RRHH'] },
+    { icon: 'bi-clock-history', label: 'Asistencia', to: '/asistencia', roles: ['EMPLEADO', 'ADMIN_RRHH'] },
+    { icon: 'bi-check2-square', label: 'Aprobaciones', to: '/asistencia/aprobaciones', roles: ['ADMIN_RRHH'] },
+    { icon: 'bi-cash-stack', label: 'Nómina', to: '/nomina', roles: ['CONTADOR', 'ADMIN_RRHH'] },
+    { icon: 'bi-file-earmark-bar-graph', label: 'Reportes', to: '/reportes', roles: ['GERENTE', 'ADMIN_RRHH', 'CONTADOR'] },
+    { icon: 'bi-gear', label: 'Configuración', to: '/configuracion', roles: ['ADMIN_SISTEMA', 'ADMIN_RRHH'] }
+  ]
+  return items.filter(item => !item.roles || item.roles.includes(role))
+})
 
 // === User state ===
 const getInitials = (name) => {
@@ -108,8 +114,9 @@ const isAuthPage = computed(() => {
 })
 
 const pageTitle = computed(() => {
-  const item = navItems.find(n => route.path.startsWith(n.to) && n.to !== '/')
+  const item = navItems.value.find(n => route.path.startsWith(n.to) && n.to !== '/')
   if (route.path === '/') return 'Dashboard'
+  if (route.path.includes('/portal-personal')) return 'Portal Personal'
   if (route.path.includes('/nuevo')) return 'Nuevo Empleado'
   if (route.path.includes('/editar')) return 'Editar Empleado'
   if (route.path.includes('/filtros')) return 'Reportes Filtrables'

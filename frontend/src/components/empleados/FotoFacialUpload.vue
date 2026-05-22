@@ -17,7 +17,7 @@
     </div>
 
     <!-- Camera launch -->
-    <div v-else class="camera-trigger" @click="startCamera">
+    <div v-else-if="!videoStream" class="camera-trigger" @click="startCamera">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
         <circle cx="12" cy="13" r="4"/>
@@ -31,13 +31,20 @@
       <div class="video-wrapper">
         <video id="videoPreview" autoplay playsinline class="video-preview"></video>
         <div class="video-scan"></div>
+        
+        <!-- Loading overlays -->
+        <div v-if="loadingModels || loadingDetection" class="loading-overlay">
+          <span class="spinner"></span>
+          <span class="loading-text">{{ loadingModels ? 'Cargando IA...' : 'Analizando Rostro...' }}</span>
+        </div>
       </div>
       <div class="video-actions">
-        <button type="button" class="btn btn-primary btn-block" @click="capturePhoto">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          Capturar Foto
+        <button type="button" class="btn btn-primary btn-block" @click="capturePhoto" :disabled="loadingModels || loadingDetection">
+          <svg v-if="!loadingModels && !loadingDetection" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span v-if="loadingModels || loadingDetection">Procesando...</span>
+          <span v-else>Capturar Foto</span>
         </button>
-        <button type="button" class="btn btn-ghost" @click="stopCamera">
+        <button type="button" class="btn btn-ghost" @click="stopCamera" :disabled="loadingDetection">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           Cancelar
         </button>
@@ -54,7 +61,7 @@
 </template>
 
 <script>
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, watch } from 'vue'
 
 export default {
   props: {
@@ -66,35 +73,111 @@ export default {
     const videoStream = ref(null)
     const capturedImage = ref(null)
     const error = ref('')
+    const loadingModels = ref(false)
+    const modelsLoaded = ref(false)
+    const loadingDetection = ref(false)
+
+    // Watch for props.fotoData to initialize preview
+    watch(() => props.fotoData, (val) => {
+      if (val) {
+        try {
+          const parsed = typeof val === 'string' ? JSON.parse(val) : val
+          capturedImage.value = parsed.image || val
+        } catch (e) {
+          capturedImage.value = val
+        }
+      } else {
+        capturedImage.value = null
+      }
+    }, { immediate: true })
+
+    const loadModels = async () => {
+      if (modelsLoaded.value) return
+      if (loadingModels.value) return
+      loadingModels.value = true
+      error.value = ''
+      try {
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'
+        // Load required models
+        await Promise.all([
+          window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ])
+        modelsLoaded.value = true
+      } catch (err) {
+        console.error('Error loading face-api models:', err)
+        error.value = 'No se pudieron cargar los modelos de reconocimiento facial desde la CDN.'
+        throw err
+      } finally {
+        loadingModels.value = false
+      }
+    }
 
     const startCamera = async () => {
       try {
         error.value = ''
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } })
+        // Pre-load models in parallel so they are ready
+        loadModels().catch(() => {})
+        
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        })
         videoStream.value = stream
-        const video = document.getElementById('videoPreview')
-        if (video) video.srcObject = stream
+        // Wait a tick for the video element to be available
+        setTimeout(() => {
+          const video = document.getElementById('videoPreview')
+          if (video) video.srcObject = stream
+        }, 100)
       } catch (err) {
         console.error('Camera error:', err)
-        error.value = 'No se pudo acceder a la cámara. Verifique los permisos.'
+        error.value = 'No se pudo acceder a la cámara. Verifique los permisos del navegador.'
       }
     }
 
-    const capturePhoto = () => {
+    const capturePhoto = async () => {
       if (!videoStream.value) return
       error.value = ''
       const video = document.getElementById('videoPreview')
       if (!video) return
+
       const canvas = document.createElement('canvas')
       canvas.width = video.videoWidth || 640
       canvas.height = video.videoHeight || 480
       const ctx = canvas.getContext('2d')
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      const imageData = canvas.toDataURL('image/jpeg', 0.9)
-      const descriptor = { image: imageData, timestamp: new Date().toISOString() }
-      emit('update:fotoData', JSON.stringify(descriptor))
-      capturedImage.value = imageData
-      stopCamera()
+      
+      loadingDetection.value = true
+      try {
+        // Guarantee models are loaded
+        await loadModels()
+        
+        // Detect face on the canvas
+        const detection = await window.faceapi.detectSingleFace(
+          canvas,
+          new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+        ).withFaceLandmarks().withFaceDescriptor()
+        
+        if (!detection) {
+          error.value = 'No se detectó ningún rostro en la imagen. Por favor, asegúrese de estar bien iluminado y mirar directamente a la cámara.'
+          return
+        }
+        
+        const imageData = canvas.toDataURL('image/jpeg', 0.9)
+        const descriptorJson = JSON.stringify({
+          image: imageData,
+          descriptor: Array.from(detection.descriptor)
+        })
+        
+        emit('update:fotoData', descriptorJson)
+        capturedImage.value = imageData
+        stopCamera()
+      } catch (err) {
+        console.error('Face processing error:', err)
+        error.value = 'Error al procesar la biometría facial. Por favor intente de nuevo.'
+      } finally {
+        loadingDetection.value = false
+      }
     }
 
     const stopCamera = () => {
@@ -109,9 +192,21 @@ export default {
       emit('update:fotoData', null)
     }
 
-    onUnmounted(() => { stopCamera() })
+    onUnmounted(() => {
+      stopCamera()
+    })
 
-    return { videoStream, capturedImage, error, startCamera, capturePhoto, stopCamera, removePhoto }
+    return {
+      videoStream,
+      capturedImage,
+      error,
+      loadingModels,
+      loadingDetection,
+      startCamera,
+      capturePhoto,
+      stopCamera,
+      removePhoto
+    }
   }
 }
 </script>
@@ -308,6 +403,26 @@ export default {
   color: var(--color-error-accent);
   border-radius: 8px;
   font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  z-index: 5;
+  backdrop-filter: blur(2px);
+}
+
+.loading-text {
+  color: white;
+  font-size: 0.85rem;
   font-weight: 500;
 }
 

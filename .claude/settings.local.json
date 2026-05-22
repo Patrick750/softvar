@@ -6,5 +6,8 @@
       "Bash(npm install *)",
       "Bash(npm cache *)"
     ]
+  },
+  "enabledPlugins": {
+    "example-skills@anthropic-agent-skills": true
   }
 }

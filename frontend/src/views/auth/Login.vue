@@ -541,12 +541,13 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: hidden; 
   background:
     radial-gradient(ellipse at 20% 50%, #0a3d7a 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, #042C53 0%, transparent 40%),
     radial-gradient(ellipse at 50% 80%, #185FA5 0%, transparent 40%),
     linear-gradient(135deg, #021B36 0%, #042C53 30%, #0a3d7a 60%, #185FA5 100%);
+
 }
 
 /* Animated overlay grid */
