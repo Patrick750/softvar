@@ -305,9 +305,36 @@ export default {
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { background: var(--color-neutral-bg-page); padding: 0.75rem 0.85rem; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-neutral-text-secondary); border-bottom: 2px solid var(--color-neutral-divider); white-space: nowrap; }
 .data-table td { padding: 0.7rem 0.85rem; font-size: 0.825rem; color: var(--color-neutral-text-primary); border-bottom: 1px solid var(--color-neutral-divider); }
-.data-row { transition: background 0.15s; }
+.data-row {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeInRow 0.35s ease forwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+  transition: background 0.2s, transform 0.15s;
+  cursor: pointer;
+}
 .data-row:hover { background: var(--color-primary-50); }
+.data-row:active { transform: scale(0.995); }
 .data-row:last-child td { border-bottom: none; }
+
+@keyframes fadeInRow {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-row {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
 .empty-cell { text-align: center; color: var(--color-neutral-text-secondary); padding: 2rem !important; }
 .table-footer { padding: 0.75rem 0.85rem; font-size: 0.75rem; color: var(--color-neutral-text-secondary); border-top: 1px solid var(--color-neutral-divider); }
 

@@ -2,9 +2,17 @@
   <div>
     <!-- Page header -->
     <div class="page-header-actions">
-      <div>
-        <h1 class="display-heading">{{ isEdit ? 'Editar Empleado' : 'Nuevo Empleado' }}</h1>
-        <p class="text-muted">{{ isEdit ? 'Modifique los datos del empleado' : 'Registre un nuevo empleado en el sistema' }}</p>
+      <div class="header-left">
+        <router-link to="/empleados" class="btn-back" data-tooltip="Volver a la lista">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </router-link>
+        <div>
+          <h1 class="display-heading">{{ isEdit ? 'Editar Empleado' : 'Nuevo Empleado' }}</h1>
+          <p class="text-muted">{{ isEdit ? 'Modifique los datos del empleado' : 'Registre un nuevo empleado en el sistema' }}</p>
+        </div>
       </div>
     </div>
 
@@ -257,6 +265,40 @@ export default {
 
 .required {
   color: var(--color-error-accent);
+}
+
+/* Back button */
+.header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+}
+
+.btn-back {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--color-divider);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-bg-white);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  margin-top: 2px;
+}
+
+.btn-back:hover {
+  border-color: var(--color-primary-500);
+  color: var(--color-primary-700);
+  background: var(--color-primary-50);
+  transform: translateX(-3px);
+}
+
+.btn-back:active {
+  transform: translateX(-1px) scale(0.96);
 }
 
 @media (max-width: 768px) {

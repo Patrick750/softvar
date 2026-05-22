@@ -47,7 +47,7 @@
                   <tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Horas</th><th>Estado</th></tr>
                 </thead>
                 <tbody>
-                  <tr v-for="att in attendances" :key="att.id">
+                  <tr v-for="(att, idx) in attendances" :key="att.id" class="data-row" :style="{ '--i': idx }">
                     <td>{{ att.fecha }}</td>
                     <td>{{ att.entrada || '-' }}</td>
                     <td>{{ att.salida || '-' }}</td>
@@ -57,7 +57,7 @@
                       <span v-else class="badge badge-error">Fallida</span>
                     </td>
                   </tr>
-                  <tr v-if="!attendances.length">
+                  <tr v-if="!attendances.length" class="empty-row">
                     <td colspan="5" class="text-center text-muted py-4">No hay registros</td>
                   </tr>
                 </tbody>
@@ -144,6 +144,50 @@ export default {
 .avatar-container {
   display: flex;
   justify-content: center;
+}
+
+.data-row {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeInRow 0.35s ease forwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+  transition: background 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+
+.data-row:hover {
+  background: var(--color-primary-50);
+}
+
+.data-row:active {
+  transform: scale(0.995);
+}
+
+.data-row:last-child td {
+  border-bottom: none;
+}
+
+.empty-row td {
+  border-bottom: none;
+}
+
+@keyframes fadeInRow {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-row {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (max-width: 768px) {

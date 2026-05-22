@@ -139,7 +139,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="emp in detalleNomina" :key="emp.id" class="data-row">
+              <tr v-for="(emp, idx) in detalleNomina" :key="emp.id" class="data-row" :style="{ '--i': idx }">
                 <td><span class="employee-name">{{ emp.nombres }} {{ emp.apellidos }}</span></td>
                 <td class="text-muted">{{ emp.cedula }}</td>
                 <td class="text-right">{{ formatoMoneda(emp.salario_base) }}</td>
@@ -541,14 +541,42 @@ export default {
 }
 
 .data-row {
-  transition: background 0.15s;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeInRow 0.35s ease forwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+  transition: background 0.2s, transform 0.15s;
+  cursor: pointer;
 }
 
 .data-row:hover {
   background: var(--color-primary-50);
 }
 
+.data-row:active {
+  transform: scale(0.995);
+}
+
 .data-row:last-child td { border-bottom: none; }
+
+@keyframes fadeInRow {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-row {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
 
 .text-right { text-align: right; }
 .text-muted { color: var(--color-neutral-text-secondary); }

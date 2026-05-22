@@ -107,7 +107,7 @@
               <tr><th>Hora</th><th>Tipo</th><th>Estado</th><th>Observaciones</th></tr>
             </thead>
             <tbody>
-              <tr v-for="attendance in todayAttendances" :key="attendance.id">
+              <tr v-for="(attendance, idx) in todayAttendances" :key="attendance.id" class="data-row" :style="{ '--i': idx }">
                 <td>{{ attendance.fecha_hora }}</td>
                 <td>
                   <span class="badge" :class="attendance.tipo === 'ENTRADA' ? 'badge-info' : 'badge-neutral'">
@@ -121,7 +121,7 @@
                 </td>
                 <td>{{ attendance.observaciones || '-' }}</td>
               </tr>
-              <tr v-if="!todayAttendances.length">
+              <tr v-if="!todayAttendances.length" class="empty-row">
                 <td colspan="4" class="text-center text-muted py-4">No hay registros de asistencia hoy</td>
               </tr>
             </tbody>
@@ -306,6 +306,50 @@ export default {
   background: var(--color-bg-subtle);
   border-radius: var(--border-radius-md);
   padding: 1.25rem;
+}
+
+.data-row {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeInRow 0.35s ease forwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+  transition: background 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+
+.data-row:hover {
+  background: var(--color-primary-50);
+}
+
+.data-row:active {
+  transform: scale(0.995);
+}
+
+.data-row:last-child td {
+  border-bottom: none;
+}
+
+.empty-row td {
+  border-bottom: none;
+}
+
+@keyframes fadeInRow {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-row {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (max-width: 768px) {
