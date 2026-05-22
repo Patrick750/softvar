@@ -105,6 +105,13 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nombres', 'apellidos', 'salario_base', 'fecha_ingreso', 'created_at']
     ordering = ['nombres', 'apellidos']
 
+    def perform_destroy(self, instance):
+        # Eliminar también el User asociado para que no pueda seguir iniciando sesión
+        user = instance.user
+        instance.delete()
+        if user:
+            user.delete()
+
 
 import math
 import json
@@ -218,11 +225,28 @@ def registrar_asistencia_view(request):
     tipo = request.data.get('tipo')
     if tipo not in ['ENTRADA', 'SALIDA']:
         return Response({'error': 'Tipo de registro inválido (Debe ser ENTRADA o SALIDA)'}, status=status.HTTP_400_BAD_REQUEST)
+
+    solicitar_manual = request.data.get('solicitar_manual', False)
+
+    # Validar duplicados solo en flujo automático
+    # En solicitudes manuales el admin decide, y si el auto falló (FALLIDO)
+    # el usuario debe poder recurrir al formulario manual
+    if not solicitar_manual and Asistencia.objects.filter(
+        empleado=empleado,
+        tipo=tipo,
+        fecha_hora__date=timezone.localdate(),
+    ).exists():
+        tipo_label = 'entrada' if tipo == 'ENTRADA' else 'salida'
+        return Response({
+            'error': f'Ya registraste tu {tipo_label} hoy. No puedes registrar otra {tipo_label} el mismo día.',
+            'status': 'DUPLICADO'
+        }, status=status.HTTP_400_BAD_REQUEST)
         
     latitud_cap = request.data.get('latitud')
     longitud_cap = request.data.get('longitud')
     descriptor_cap = request.data.get('descriptor_facial') # List of 128 numbers
-    solicitar_manual = request.data.get('solicitar_manual', False)
+    liveness_score_cap = request.data.get('liveness_score') # Liveness score from frontend
+    liveness_validated_cap = request.data.get('liveness_validated', False)
     justificacion = request.data.get('justificacion', '')
 
     # Fetch configuration limits
@@ -265,14 +289,34 @@ def registrar_asistencia_view(request):
         
     face_ok = True
     face_score = None
+    no_facial_data = not empleado.foto_facial or not empleado.foto_facial_registrada
     if descriptor_cap:
-        face_score = calcular_distancia_facial(empleado.foto_facial, descriptor_cap)
-        if face_score is None or face_score > 0.6: # Euclidean distance threshold of 0.6 represents ~80% similarity
+        if no_facial_data:
+            # No stored facial data to compare against
             face_ok = False
+            face_score = None
+        else:
+            face_score = calcular_distancia_facial(empleado.foto_facial, descriptor_cap)
+            if face_score is None or face_score > 0.6: # Euclidean distance threshold of 0.6 represents ~80% similarity
+                face_ok = False
     else:
         face_ok = False # Face biometrics is mandatory for automatic validation
 
     if not gps_ok or not face_ok:
+        # Build detailed observaciones
+        failure_reasons = []
+        if not gps_ok:
+            failure_reasons.append(f"GPS fuera de rango (Distancia={distancia:.1f}m)")
+        if not face_ok:
+            if no_facial_data:
+                failure_reasons.append("No hay foto facial registrada para este empleado")
+            elif face_score is None:
+                failure_reasons.append("No se pudo calcular la comparación facial")
+            else:
+                failure_reasons.append(f"Rostro no coincide (Score={face_score:.3f}, umbral=0.6)")
+        
+        obs = "Fallo de verificación. " + ". ".join(failure_reasons)
+        
         # Save as failed attempt
         asistencia = Asistencia.objects.create(
             empleado=empleado,
@@ -281,7 +325,9 @@ def registrar_asistencia_view(request):
             latitud=latitud_cap,
             longitud=longitud_cap,
             verificacion_facial_score=face_score,
-            observaciones=f"Fallo de verificación. GPS_OK={gps_ok} (Distancia={distancia:.1f}m), FACE_OK={face_ok} (Score={face_score})"
+            liveness_score=liveness_score_cap,
+            liveness_validated=liveness_validated_cap,
+            observaciones=obs
         )
         
         # Auditoría log
@@ -293,7 +339,9 @@ def registrar_asistencia_view(request):
                 'gps_ok': gps_ok,
                 'distancia': distancia,
                 'face_ok': face_ok,
-                'face_score': face_score
+                'face_score': face_score,
+                'liveness_score': liveness_score_cap,
+                'liveness_validated': liveness_validated_cap
             },
             request
         )
@@ -315,11 +363,13 @@ def registrar_asistencia_view(request):
         latitud=latitud_cap,
         longitud=longitud_cap,
         verificacion_facial_score=face_score,
+        liveness_score=liveness_score_cap,
+        liveness_validated=liveness_validated_cap,
         observaciones='Registro biométrico y GPS exitoso'
     )
     
     # Audit log
-    registrar_auditoria(user, 'REGISTRO_ASISTENCIA_OK', 'asistencias', asistencia.id, None, {'tipo': tipo}, request)
+    registrar_auditoria(user, 'REGISTRO_ASISTENCIA_OK', 'asistencias', asistencia.id, None, {'tipo': tipo, 'liveness_score': liveness_score_cap, 'liveness_validated': liveness_validated_cap}, request)
     
     return Response({
         'status': 'EXITO',
@@ -419,11 +469,18 @@ def aprobar_asistencia_view(request):
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([permissions.IsAuthenticated, IsAdminSistema])
+@permission_classes([permissions.IsAuthenticated])
 def configuracion_parametros_view(request):
     """
     Permite obtener y actualizar los parámetros de configuración del sistema.
+    Requiere rol ADMIN_SISTEMA (crear/actualizar parámetros) o ADMIN_RRHH (solo lectura).
     """
+    role = get_user_role(request.user)
+    if role not in ['ADMIN_SISTEMA', 'ADMIN_RRHH']:
+        return Response({'error': 'No tienes permiso para acceder a esta configuración'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'POST' and role != 'ADMIN_SISTEMA':
+        return Response({'error': 'Solo el Administrador del Sistema puede modificar parámetros'}, status=status.HTTP_403_FORBIDDEN)
     if request.method == 'GET':
         params = ParametroSistema.objects.all()
         data = {p.clave: {'valor': p.valor, 'descripcion': p.descripcion} for p in params}
@@ -465,8 +522,11 @@ def configuracion_parametros_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated, IsAdminSistema])
+@permission_classes([permissions.IsAuthenticated])
 def auditoria_logs_view(request):
+    role = get_user_role(request.user)
+    if role not in ['ADMIN_SISTEMA', 'ADMIN_RRHH']:
+        return Response({'error': 'No tienes permiso para ver la auditoría'}, status=status.HTTP_403_FORBIDDEN)
     qs = Auditoria.objects.all()[:100] # Limit to 100 logs
     data = []
     for log in qs:

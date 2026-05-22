@@ -59,7 +59,10 @@
             <!-- Loading overlay -->
             <div v-if="isProcessing || loadingModels" class="camera-loading-overlay">
               <span class="spinner"></span>
-              <p class="mt-2 text-white text-sm">{{ loadingModels ? 'Cargando modelos IA...' : 'Procesando marcación...' }}</p>
+              <p class="mt-2 text-white text-sm">
+                <template v-if="loadingModels">Cargando modelos IA...</template>
+                <template v-else>Procesando marcación...</template>
+              </p>
             </div>
           </div>
 
@@ -118,10 +121,14 @@
               <span class="text-muted">Estado del GPS:</span>
               <span>
                 <span v-if="gpsStatus === 'fetching'" class="badge badge-warning"><span class="spinner spinner-xs me-1"></span>Buscando...</span>
-                <span v-elif="gpsStatus === 'success'" class="badge badge-success">Localizado</span>
-                <span v-elif="gpsStatus === 'error'" class="badge badge-error">Error / Inactivo</span>
+                <span v-else-if="gpsStatus === 'success'" class="badge badge-success">Localizado</span>
+                <span v-else-if="gpsStatus === 'error'" class="badge badge-error">Error / Inactivo</span>
+                <span v-else-if="locationPreviouslyGranted" class="badge badge-info">Permiso concedido</span>
                 <span v-else class="badge badge-neutral">Inactivo</span>
               </span>
+              <small v-if="locationPreviouslyGranted && gpsStatus === 'idle'" class="text-xs text-muted mt-1">
+                <i class="bi bi-check-circle me-1"></i>Ubicación ya aprobada — al iniciar cámara se obtendrán coordenadas
+              </small>
             </div>
           </div>
 
@@ -200,8 +207,8 @@
                 </td>
                 <td>
                   <span v-if="attendance.estado === 'EXITO'" class="badge badge-solid-success">Exitosa</span>
-                  <span v-elif="attendance.estado === 'PENDIENTE_APROBACION'" class="badge badge-warning">Pendiente RRHH</span>
-                  <span v-elif="attendance.estado === 'RECHAZADO'" class="badge badge-neutral">Rechazada</span>
+                  <span v-else-if="attendance.estado === 'PENDIENTE_APROBACION'" class="badge badge-warning">Pendiente RRHH</span>
+                  <span v-else-if="attendance.estado === 'RECHAZADO'" class="badge badge-neutral">Rechazada</span>
                   <span v-else class="badge badge-solid-error">Fallida</span>
                 </td>
                 <td>{{ attendance.observaciones || attendance.justificacion_manual || '-' }}</td>
@@ -220,6 +227,7 @@
 <script>
 import { ref, reactive, computed, onMounted, onUnmounted, inject } from 'vue'
 import axios from 'axios'
+// face-api.js loaded from CDN via index.html
 
 export default {
   setup() {
@@ -232,6 +240,7 @@ export default {
     const loadingEmployee = ref(true)
     const gpsStatus = ref('idle') // 'idle', 'fetching', 'success', 'error'
     const currentCoords = reactive({ lat: null, lon: null })
+    const locationPreviouslyGranted = ref(localStorage.getItem('locationGranted') === 'true')
     
     // Form selections
     const selectedTipo = ref('ENTRADA')
@@ -239,7 +248,11 @@ export default {
     // Face API loading states
     const loadingModels = ref(false)
     const modelsLoaded = ref(false)
+    let modelsLoadingPromise = null
     
+    // Face detection ready flag
+    const faceDetected = ref(false)
+
     // Manual Request Form
     const showManualForm = ref(false)
     const manualJustification = ref('')
@@ -259,21 +272,33 @@ export default {
     // Load employee and history
     const loadData = async () => {
       loadingEmployee.value = true
+      let hasError = false
+
+      // 1. Load employee profile
       try {
         const empResponse = await axios.get('/api/empleados/me/')
         employeeInfo.value = empResponse.data
+      } catch (err) {
+        console.error('Error loading employee profile:', err)
+        hasError = true
+        if (err.response?.status === 404) {
+          addToast('Atención', 'Su usuario no tiene un perfil de empleado asociado. Contacte a RRHH.', 'warning')
+        } else {
+          addToast('Error', 'No se pudo cargar su perfil. Verifique su conexión.', 'error')
+        }
+      }
 
+      // 2. Load attendance history (even if profile failed, try history)
+      try {
         const histResponse = await axios.get('/api/asistencia/historial/')
         const allLogs = histResponse.data
-        
-        // Filter for today's logs (local date matching)
+
         const todayStr = new Date().toISOString().split('T')[0]
         todayAttendances.value = allLogs.filter(log => {
           if (!log.fecha_hora) return false
           return log.fecha_hora.split('T')[0] === todayStr
         })
 
-        // Get last log to suggest default type
         if (allLogs.length > 0) {
           lastAttendance.value = allLogs[0]
           selectedTipo.value = lastAttendance.value.tipo === 'ENTRADA' ? 'SALIDA' : 'ENTRADA'
@@ -281,8 +306,11 @@ export default {
           selectedTipo.value = 'ENTRADA'
         }
       } catch (err) {
-        console.error('Error loading attendance info:', err)
-        addToast('Error', 'No se pudieron cargar sus datos de asistencia.', 'error')
+        console.error('Error loading attendance history:', err)
+        if (!hasError) {
+          addToast('Error', 'No se pudo cargar el historial de asistencia.', 'error')
+        }
+        hasError = true
       } finally {
         loadingEmployee.value = false
       }
@@ -290,9 +318,11 @@ export default {
 
     const loadModels = async () => {
       if (modelsLoaded.value) return
-      if (loadingModels.value) return
+      if (loadingModels.value && modelsLoadingPromise) {
+        return modelsLoadingPromise
+      }
       loadingModels.value = true
-      try {
+      const promise = (async () => {
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'
         await Promise.all([
           window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
@@ -300,11 +330,16 @@ export default {
           window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ])
         modelsLoaded.value = true
+      })()
+      modelsLoadingPromise = promise
+      try {
+        await promise
       } catch (err) {
         console.error('Error loading face-api models:', err)
         addToast('Error', 'Error al cargar modelos de reconocimiento facial.', 'error')
       } finally {
         loadingModels.value = false
+        modelsLoadingPromise = null
       }
     }
 
@@ -357,6 +392,8 @@ export default {
             currentCoords.lat = position.coords.latitude
             currentCoords.lon = position.coords.longitude
             gpsStatus.value = 'success'
+            // Guardar en localStorage que el usuario aprobó la ubicación
+            localStorage.setItem('locationGranted', 'true')
             resolve(position.coords)
           },
           (err) => {
@@ -375,56 +412,62 @@ export default {
       if (!video) return
 
       isProcessing.value = true
+
       Object.assign(verificationState, {
         show: true,
-        message: 'Procesando registro...',
-        details: 'Obteniendo GPS y analizando rostro...',
+        message: 'Capturando imagen...',
+        details: 'Por favor manténgase quieto mirando a la cámara.',
         type: 'info'
       })
 
-      // Capture static image from video
-      const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth || 640
-      canvas.height = video.videoHeight || 480
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      const imageData = canvas.toDataURL('image/jpeg', 0.9)
-      capturedImage.value = imageData
+      try {        // 1. Ensure face models are loaded
+        if (!modelsLoaded.value) {
+            await loadModels()
+            if (!modelsLoaded.value) {
+                // Model loading failed — was already reported via toast
+                return
+            }
+        }
 
-      try {
-        // 1. Get Coordinates
+        // 2. Get Coordinates in parallel with face detection
         let coords = null
         try {
           coords = await getCoordinates()
         } catch (gpsErr) {
           console.warn('GPS failed:', gpsErr)
-          // Geolocation is required for auto check-in
         }
 
-        // Stop camera now that we have the capture
-        stopCamera()
+        // 3. Capture a single frame from the video
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth || 640
+        canvas.height = video.videoHeight || 480
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9)
+        capturedImage.value = imageDataUrl
 
-        // 2. Load face-api and detect face
-        await loadModels()
+        // Stop camera now
+        stopCamera()        // 4. Detect face and extract descriptor (single pass, instant)
+        // Note: withFaceLandmarks() is required BEFORE withFaceDescriptor() in @vladmandic/face-api
         const detection = await window.faceapi.detectSingleFace(
           canvas,
           new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
         ).withFaceLandmarks().withFaceDescriptor()
-
+        
         if (!detection) {
           Object.assign(verificationState, {
             show: true,
             message: 'Rostro no detectado',
-            details: 'No pudimos localizar un rostro en la captura. Por favor intente de nuevo con buena luz y de frente.',
+            details: 'No pudimos localizar un rostro en la captura. Intente de nuevo con buena luz y de frente a la cámara.',
             type: 'error'
           })
-          showManualForm.value = true // Let them request manual registration if camera fails
+          showManualForm.value = true
           return
         }
 
         const descriptor = Array.from(detection.descriptor)
 
-        // 3. Send to API for automatic verification
+        // 5. Send to API for verification
         const response = await axios.post('/api/asistencia/registrar/', {
           tipo: selectedTipo.value,
           latitud: coords ? coords.latitude : null,
@@ -440,13 +483,12 @@ export default {
           type: 'success'
         })
         addToast('Éxito', 'Asistencia registrada.', 'success')
-        loadData() // Refresh logs
+        loadData()
       } catch (err) {
         console.error('Verification error:', err)
         const resData = err.response?.data
         
         if (resData) {
-          // If verification failed automatically
           const detailsMsg = resData.message || `GPS_OK: ${resData.gps_ok ? 'Sí' : 'No'} | Facial_OK: ${resData.face_ok ? 'Sí' : 'No'}`
           Object.assign(verificationState, {
             show: true,
@@ -462,7 +504,7 @@ export default {
             type: 'error'
           })
         }
-        showManualForm.value = true // Show manual request form on failure
+        showManualForm.value = true
       } finally {
         isProcessing.value = false
       }
@@ -475,6 +517,16 @@ export default {
       }
 
       submittingManual.value = true
+
+      // Intentar obtener coordenadas GPS si el permiso fue concedido previamente pero aún no tenemos coordenadas
+      if (locationPreviouslyGranted.value && !currentCoords.lat) {
+        try {
+          await getCoordinates()
+        } catch (gpsErr) {
+          console.warn('No se pudieron obtener coordenadas para solicitud manual:', gpsErr)
+        }
+      }
+
       try {
         const response = await axios.post('/api/asistencia/registrar/', {
           tipo: selectedTipo.value,
@@ -519,7 +571,23 @@ export default {
       return date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
     }
 
-    onMounted(loadData)
+    // Precargar coordenadas GPS automáticamente si el permiso ya fue concedido
+    const prefetchCoordinates = async () => {
+      if (!locationPreviouslyGranted.value) return
+      try {
+        await getCoordinates()
+        console.log('GPS coordenadas precargadas automáticamente (permiso previamente concedido)')
+      } catch (err) {
+        // Silencioso — no molestar al usuario si falla la precarga
+        console.warn('Precarga de GPS no disponible:', err.message)
+      }
+    }
+
+    onMounted(async () => {
+      await loadData()
+      // Precarga silenciosa de GPS si el permiso ya fue concedido
+      prefetchCoordinates()
+    })
     onUnmounted(stopCamera)
 
     return {
@@ -532,6 +600,7 @@ export default {
       loadingEmployee,
       gpsStatus,
       currentCoords,
+      locationPreviouslyGranted,
       selectedTipo,
       loadingModels,
       showManualForm,
@@ -540,6 +609,9 @@ export default {
       verificationState,
       verificationAlertClass,
       verificationIcon,
+      // Face detection ready
+      faceDetected,
+      // Methods
       startCamera,
       stopCamera,
       captureAndVerify,

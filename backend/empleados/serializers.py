@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User, Group
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
+from django.conf import settings
 from .models import Empleado
 
 class EmpleadoSerializer(serializers.ModelSerializer):
@@ -10,7 +11,14 @@ class EmpleadoSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('id', 'user', 'created_at', 'updated_at')
 
+    def _auto_set_foto_registrada(self, validated_data):
+        """Automatically set foto_facial_registrada based on foto_facial presence."""
+        if 'foto_facial' in validated_data:
+            validated_data['foto_facial_registrada'] = bool(validated_data['foto_facial'])
+        return validated_data
+
     def create(self, validated_data):
+        validated_data = self._auto_set_foto_registrada(validated_data)
         email = validated_data.get('email')
         cedula = validated_data.get('cedula')
         nombres = validated_data.get('nombres', '')
@@ -62,7 +70,7 @@ El Equipo de Recursos Humanos
             send_mail(
                 subject,
                 message,
-                'noreply@softvar.com',
+                settings.DEFAULT_FROM_EMAIL,
                 [email],
                 fail_silently=False,
             )
@@ -73,6 +81,7 @@ El Equipo de Recursos Humanos
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        validated_data = self._auto_set_foto_registrada(validated_data)
         email = validated_data.get('email')
         if email and instance.user and instance.user.email != email:
             instance.user.email = email

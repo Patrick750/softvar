@@ -31,11 +31,10 @@
       <div class="video-wrapper">
         <video id="videoPreview" autoplay playsinline class="video-preview"></video>
         <div class="video-scan"></div>
-        
         <!-- Loading overlays -->
         <div v-if="loadingModels || loadingDetection" class="loading-overlay">
           <span class="spinner"></span>
-          <span class="loading-text">{{ loadingModels ? 'Cargando IA...' : 'Analizando Rostro...' }}</span>
+          <span class="loading-text">{{ loadingModels ? 'Cargando IA...' : 'Procesando...' }}</span>
         </div>
       </div>
       <div class="video-actions">
@@ -75,6 +74,7 @@ export default {
     const error = ref('')
     const loadingModels = ref(false)
     const modelsLoaded = ref(false)
+    let modelsLoadingPromise = null
     const loadingDetection = ref(false)
 
     // Watch for props.fotoData to initialize preview
@@ -93,24 +93,30 @@ export default {
 
     const loadModels = async () => {
       if (modelsLoaded.value) return
-      if (loadingModels.value) return
+      if (loadingModels.value && modelsLoadingPromise) {
+        return modelsLoadingPromise
+      }
       loadingModels.value = true
       error.value = ''
-      try {
+      const promise = (async () => {
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'
-        // Load required models
         await Promise.all([
           window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
           window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
           window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ])
         modelsLoaded.value = true
+      })()
+      modelsLoadingPromise = promise
+      try {
+        await promise
       } catch (err) {
         console.error('Error loading face-api models:', err)
         error.value = 'No se pudieron cargar los modelos de reconocimiento facial desde la CDN.'
         throw err
       } finally {
         loadingModels.value = false
+        modelsLoadingPromise = null
       }
     }
 
@@ -141,18 +147,20 @@ export default {
       const video = document.getElementById('videoPreview')
       if (!video) return
 
-      const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth || 640
-      canvas.height = video.videoHeight || 480
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      
       loadingDetection.value = true
       try {
-        // Guarantee models are loaded
+        // 1. Ensure face models are loaded
         await loadModels()
-        
-        // Detect face on the canvas
+
+        // 2. Capture a single frame
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth || 640
+        canvas.height = video.videoHeight || 480
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+        // 3. Detect face and extract descriptor (single pass, instant)
+        // Note: withFaceLandmarks() is required BEFORE withFaceDescriptor() in @vladmandic/face-api
         const detection = await window.faceapi.detectSingleFace(
           canvas,
           new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })

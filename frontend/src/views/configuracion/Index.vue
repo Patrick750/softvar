@@ -120,9 +120,21 @@
         <div class="card-body">
           <div class="gps-description">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span>Defina las coordenadas y el radio de la oficina para la validación de asistencia por GPS.</span>
+            <span>Seleccione la ubicación de la oficina en el mapa. Arrastre el marcador o haga clic en el mapa para ajustar.</span>
           </div>
-          <form @submit.prevent="actualizarGPS" class="form-grid form-grid-3">
+
+          <!-- Mapa interactivo -->
+          <LocationPicker
+            :lat="gps.latitud"
+            :lng="gps.longitud"
+            :radius="gps.radio"
+            @update:lat="gps.latitud = $event"
+            @update:lng="gps.longitud = $event"
+            @update:radius="gps.radio = $event"
+          />
+
+          <!-- Radio y botón guardar -->
+          <form @submit.prevent="actualizarGPS" class="form-grid form-grid-3 mt-3">
             <div class="form-group">
               <label class="form-label">Latitud <span class="required">*</span></label>
               <input type="number" v-model.number="gps.latitud" required step="0.000001" class="form-input" placeholder="ej. 2.927300">
@@ -134,7 +146,7 @@
             <div class="form-group">
               <label class="form-label">Radio (metros) <span class="required">*</span></label>
               <div class="input-suffix">
-                <input type="number" v-model.number="gps.radio" required min="1" step="1" class="form-input suffix-input" placeholder="ej. 100">
+                <input type="number" v-model.number="gps.radio" required min="1" max="5000" step="1" class="form-input suffix-input" placeholder="ej. 100">
                 <span class="suffix">m</span>
               </div>
             </div>
@@ -292,8 +304,10 @@
 <script>
 import { ref, onMounted, inject } from 'vue'
 import axios from 'axios'
+import LocationPicker from '@/components/configuracion/LocationPicker.vue'
 
 export default {
+  components: { LocationPicker },
   setup() {
     const addToast = inject('addToast', () => {})
 
@@ -306,7 +320,7 @@ export default {
 
     const config = ref({ smmlv: 0 })
     const porcentajes = ref({ salud: 0, pension: 0, arl: 0 })
-    const gps = ref({ latitud: 0, longitud: 0, radio: 100 })
+    const gps = ref({ latitud: 2.927300, longitud: -75.281800, radio: 100 })
 
     const auditLogs = ref([])
     const expandedLogId = ref(null)

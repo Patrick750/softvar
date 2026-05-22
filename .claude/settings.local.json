@@ -4,7 +4,11 @@
       "Bash(python *)",
       "Bash(npm run *)",
       "Bash(npm install *)",
-      "Bash(npm cache *)"
+      "Bash(npm cache *)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   },
   "enabledPlugins": {

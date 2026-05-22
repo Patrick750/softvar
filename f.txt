@@ -1,0 +1,12 @@
+nesesito que con django.core.mail hagas el envio del correo electronico a los empleados creados en la plataforma, los correos deben ser enviados desde el correo ortizpatrick750@gmail.com y la contraseña de aplicacion para que se puedan enviar los correos por gmail es esta "xczv ouey kdtm opzz"
+│ ADMIN_RRHH    │ rrhh@empresa.com     │ Admin123*    │
+│ CONTADOR      │ contador@empresa.com │ Admin123*    │
+│ GERENTE       │ gerente@empresa.com  │ Admin123*    │
+│ ADMIN_SISTEMA │ sistema@empresa.com  │ Admin123*    │
+│ EMPLEADO      │ empleado@empresa.com │ Empleado123* 
+
+
+nesesito que cambies el scaneo facial por estas librerias de backend y frontend para que cada escaneo se a casi instantano. backend-face_recognition y fronted-face-api.js, el registro del scaneo debe serguardado en la db y guando se haga un resistro de asistencia para comparar 
+
+
+nesesito que valide que solo se pueda hacer asistencia desde la sesion del propietario, osea que cada usuario registre su asistencia en su propia cuenta

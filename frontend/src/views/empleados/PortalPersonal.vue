@@ -76,8 +76,8 @@
                     </td>
                     <td>
                       <span v-if="att.estado === 'EXITO'" class="badge badge-solid-success">Exitosa</span>
-                      <span v-elif="att.estado === 'PENDIENTE_APROBACION'" class="badge badge-warning">Pendiente RRHH</span>
-                      <span v-elif="att.estado === 'RECHAZADO'" class="badge badge-neutral">Rechazada</span>
+                      <span v-else-if="att.estado === 'PENDIENTE_APROBACION'" class="badge badge-warning">Pendiente RRHH</span>
+                      <span v-else-if="att.estado === 'RECHAZADO'" class="badge badge-neutral">Rechazada</span>
                       <span v-else class="badge badge-solid-error">Fallida</span>
                     </td>
                     <td>

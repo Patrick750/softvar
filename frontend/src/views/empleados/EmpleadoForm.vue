@@ -59,7 +59,23 @@
 
           <div class="form-group">
             <label for="cargo" class="form-label">Cargo <span class="required">*</span></label>
-            <input type="text" class="form-input" id="cargo" v-model="form.cargo" required>
+            <select class="form-select" id="cargo" v-model="form.cargo" required>
+              <option value="">Seleccione un cargo...</option>
+              <option value="Desarrollador Senior">Desarrollador Senior</option>
+              <option value="Desarrollador Junior">Desarrollador Junior</option>
+              <option value="Analista de Calidad">Analista de Calidad</option>
+              <option value="Analista de Desarrollo">Analista de Desarrollo</option>
+              <option value="Diseñador UX/UI">Diseñador UX/UI</option>
+              <option value="Scrum Master">Scrum Master</option>
+              <option value="Product Owner">Product Owner</option>
+              <option value="Administrador de RRHH">Administrador de RRHH</option>
+              <option value="Contador General">Contador General</option>
+              <option value="Gerente General">Gerente General</option>
+              <option value="Administrador del Sistema">Administrador del Sistema</option>
+              <option value="Auxiliar Contable">Auxiliar Contable</option>
+              <option value="Secretario(a)">Secretario(a)</option>
+              <option value="Practicante">Practicante</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -102,17 +118,50 @@
 
           <div class="form-group">
             <label for="eps" class="form-label">EPS <span class="required">*</span></label>
-            <input type="text" class="form-input" id="eps" v-model="form.eps" required>
+            <select class="form-select" id="eps" v-model="form.eps" required>
+              <option value="">Seleccione una EPS...</option>
+              <option value="Sanitas">Sanitas</option>
+              <option value="Nueva EPS">Nueva EPS</option>
+              <option value="Compensar">Compensar</option>
+              <option value="Colsanitas">Colsanitas</option>
+              <option value="Sura">Sura</option>
+              <option value="Salud Total">Salud Total</option>
+              <option value="Coomeva">Coomeva</option>
+              <option value="Famisanar">Famisanar</option>
+              <option value="Cafam">Cafam</option>
+              <option value="Cruz Blanca">Cruz Blanca</option>
+              <option value="Capital Salud">Capital Salud</option>
+              <option value="Mutual Ser">Mutual Ser</option>
+              <option value="Comfamiliar">Comfamiliar</option>
+            </select>
           </div>
 
           <div class="form-group">
             <label for="afp" class="form-label">AFP <span class="required">*</span></label>
-            <input type="text" class="form-input" id="afp" v-model="form.afp" required>
+            <select class="form-select" id="afp" v-model="form.afp" required>
+              <option value="">Seleccione una AFP...</option>
+              <option value="Porvenir">Porvenir</option>
+              <option value="Colfondos">Colfondos</option>
+              <option value="Protección">Protección</option>
+              <option value="Old Mutual">Old Mutual</option>
+              <option value="Skandia">Skandia</option>
+            </select>
           </div>
 
           <div class="form-group">
             <label for="arl" class="form-label">ARL <span class="required">*</span></label>
-            <input type="text" class="form-input" id="arl" v-model="form.arl" required>
+            <select class="form-select" id="arl" v-model="form.arl" required>
+              <option value="">Seleccione una ARL...</option>
+              <option value="Positiva">Positiva</option>
+              <option value="Sura">Sura</option>
+              <option value="Bolívar">Bolívar</option>
+              <option value="Colpatria">Colpatria</option>
+              <option value="Mapfre">Mapfre</option>
+              <option value="Colmena">Colmena</option>
+              <option value="Equidad">Equidad</option>
+              <option value="Aurora">Aurora</option>
+              <option value="Seguros del Estado">Seguros del Estado</option>
+            </select>
           </div>
 
           <!-- Bank Information Section -->
@@ -131,7 +180,24 @@
 
           <div class="form-group">
             <label for="banco" class="form-label">Banco</label>
-            <input type="text" class="form-input" id="banco" v-model="form.banco">
+            <select class="form-select" id="banco" v-model="form.banco">
+              <option value="">Seleccione un banco...</option>
+              <option value="Bancolombia">Bancolombia</option>
+              <option value="Davivienda">Davivienda</option>
+              <option value="Banco de Bogotá">Banco de Bogotá</option>
+              <option value="Banco Popular">Banco Popular</option>
+              <option value="Banco de Occidente">Banco de Occidente</option>
+              <option value="BBVA">BBVA</option>
+              <option value="Colpatria">Colpatria</option>
+              <option value="AV Villas">AV Villas</option>
+              <option value="Itaú">Itaú</option>
+              <option value="Banco Agrario">Banco Agrario</option>
+              <option value="Bancoomeva">Bancoomeva</option>
+              <option value="Scotiabank Colpatria">Scotiabank Colpatria</option>
+              <option value="Banco Caja Social">Banco Caja Social</option>
+              <option value="Nequi">Nequi</option>
+              <option value="DaviPlata">DaviPlata</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -205,6 +271,13 @@ export default {
       foto_facial: null,
       foto_facial_registrada: false,
       activo: true
+    })
+
+    // Auto-set foto_facial_registrada when foto_facial has data
+    watch(() => form.value.foto_facial, (val) => {
+      if (val) {
+        form.value.foto_facial_registrada = true
+      }
     })
 
     watch(() => route.params.id, async (newId) => {

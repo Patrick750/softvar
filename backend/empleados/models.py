@@ -12,6 +12,72 @@ class Empleado(models.Model):
         ('AHORROS', 'Ahorros'),
         ('CORRIENTE', 'Corriente'),
     ]
+    CARGO_CHOICES = [
+        ('Desarrollador Senior', 'Desarrollador Senior'),
+        ('Desarrollador Junior', 'Desarrollador Junior'),
+        ('Analista de Calidad', 'Analista de Calidad'),
+        ('Analista de Desarrollo', 'Analista de Desarrollo'),
+        ('Diseñador UX/UI', 'Diseñador UX/UI'),
+        ('Scrum Master', 'Scrum Master'),
+        ('Product Owner', 'Product Owner'),
+        ('Administrador de RRHH', 'Administrador de RRHH'),
+        ('Contador General', 'Contador General'),
+        ('Gerente General', 'Gerente General'),
+        ('Administrador del Sistema', 'Administrador del Sistema'),
+        ('Auxiliar Contable', 'Auxiliar Contable'),
+        ('Secretario(a)', 'Secretario(a)'),
+        ('Practicante', 'Practicante'),
+    ]
+    EPS_CHOICES = [
+        ('Sanitas', 'Sanitas'),
+        ('Nueva EPS', 'Nueva EPS'),
+        ('Compensar', 'Compensar'),
+        ('Colsanitas', 'Colsanitas'),
+        ('Sura', 'Sura'),
+        ('Salud Total', 'Salud Total'),
+        ('Coomeva', 'Coomeva'),
+        ('Famisanar', 'Famisanar'),
+        ('Cafam', 'Cafam'),
+        ('Cruz Blanca', 'Cruz Blanca'),
+        ('Capital Salud', 'Capital Salud'),
+        ('Mutual Ser', 'Mutual Ser'),
+        ('Comfamiliar', 'Comfamiliar'),
+    ]
+    AFP_CHOICES = [
+        ('Porvenir', 'Porvenir'),
+        ('Colfondos', 'Colfondos'),
+        ('Protección', 'Protección'),
+        ('Old Mutual', 'Old Mutual'),
+        ('Skandia', 'Skandia'),
+    ]
+    ARL_CHOICES = [
+        ('Positiva', 'Positiva'),
+        ('Sura', 'Sura'),
+        ('Bolívar', 'Bolívar'),
+        ('Colpatria', 'Colpatria'),
+        ('Mapfre', 'Mapfre'),
+        ('Colmena', 'Colmena'),
+        ('Equidad', 'Equidad'),
+        ('Aurora', 'Aurora'),
+        ('Seguros del Estado', 'Seguros del Estado'),
+    ]
+    BANCO_CHOICES = [
+        ('Bancolombia', 'Bancolombia'),
+        ('Davivienda', 'Davivienda'),
+        ('Banco de Bogotá', 'Banco de Bogotá'),
+        ('Banco Popular', 'Banco Popular'),
+        ('Banco de Occidente', 'Banco de Occidente'),
+        ('BBVA', 'BBVA'),
+        ('Colpatria', 'Colpatria'),
+        ('AV Villas', 'AV Villas'),
+        ('Itaú', 'Itaú'),
+        ('Banco Agrario', 'Banco Agrario'),
+        ('Bancoomeva', 'Bancoomeva'),
+        ('Scotiabank Colpatria', 'Scotiabank Colpatria'),
+        ('Banco Caja Social', 'Banco Caja Social'),
+        ('Nequi', 'Nequi'),
+        ('DaviPlata', 'DaviPlata'),
+    ]
 
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name='empleado')
@@ -20,16 +86,16 @@ class Empleado(models.Model):
     apellidos = models.CharField(max_length=100)
     email = models.EmailField(max_length=150, unique=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)
-    cargo = models.CharField(max_length=100)
+    cargo = models.CharField(max_length=100, choices=CARGO_CHOICES)
     tipo_contrato = models.CharField(max_length=30, choices=TIPO_CONTRATO_CHOICES)
     salario_base = models.DecimalField(max_digits=10, decimal_places=2)
     fecha_ingreso = models.DateField()
     fecha_retiro = models.DateField(blank=True, null=True)
-    eps = models.CharField(max_length=100)
-    afp = models.CharField(max_length=100)
-    arl = models.CharField(max_length=100)
+    eps = models.CharField(max_length=100, choices=EPS_CHOICES)
+    afp = models.CharField(max_length=100, choices=AFP_CHOICES)
+    arl = models.CharField(max_length=100, choices=ARL_CHOICES)
     cuenta_bancaria = models.CharField(max_length=30, blank=True, null=True)
-    banco = models.CharField(max_length=80, blank=True, null=True)
+    banco = models.CharField(max_length=80, choices=BANCO_CHOICES, blank=True, null=True)
     tipo_cuenta = models.CharField(max_length=20, choices=TIPO_CUENTA_CHOICES, blank=True, null=True)
     foto_facial = models.TextField(blank=True, null=True)  # JSON descriptor base64
     foto_facial_registrada = models.BooleanField(default=False)
@@ -80,6 +146,8 @@ class Asistencia(models.Model):
     justificacion_manual = models.TextField(blank=True, null=True)
     aprobado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='asistencias_aprobadas')
     verificacion_facial_score = models.DecimalField(max_digits=4, decimal_places=3, blank=True, null=True)
+    liveness_score = models.DecimalField(max_digits=4, decimal_places=3, blank=True, null=True, help_text='Puntuación de detección de vitalidad (0-1)')
+    liveness_validated = models.BooleanField(default=False, help_text='Indica si pasó la validación de vitalidad')
     observaciones = models.TextField(blank=True, null=True)
 
     class Meta:
