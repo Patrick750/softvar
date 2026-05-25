@@ -304,13 +304,15 @@ export default {
                 easeLinearity: 0.25
               })
 
-              // After fly animation completes, set final marker position
-              setTimeout(() => {
-                marker.setLatLng([newLat, newLng])
-                circle.setLatLng([newLat, newLng])
-                emit('update:lat', newLat)
-                emit('update:lng', newLng)
-              }, 1300)
+              // When fly animation completes, set final marker position
+              map.once('moveend', () => {
+                if (marker && circle) {
+                  marker.setLatLng([newLat, newLng])
+                  circle.setLatLng([newLat, newLng])
+                  emit('update:lat', newLat)
+                  emit('update:lng', newLng)
+                }
+              })
             }, 700)
           }
 
@@ -338,10 +340,10 @@ export default {
           animate: true,
           duration: 1.0
         })
+        map.once('moveend', () => {
+          moveMarker(2.927300, -75.281800)
+        })
       }
-      setTimeout(() => {
-        moveMarker(2.927300, -75.281800)
-      }, 1000)
       emit('update:radius', 100)
     }
 

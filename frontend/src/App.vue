@@ -39,7 +39,7 @@ const navItems = computed(() => {
     { icon: 'bi-check2-square', label: 'Aprobaciones', to: '/asistencia/aprobaciones', roles: ['ADMIN_RRHH'] },
     { icon: 'bi-cash-stack', label: 'Nómina', to: '/nomina', roles: ['CONTADOR', 'ADMIN_RRHH'] },
     { icon: 'bi-file-earmark-bar-graph', label: 'Reportes', to: '/reportes', roles: ['GERENTE', 'ADMIN_RRHH', 'CONTADOR'] },
-    { icon: 'bi-gear', label: 'Configuración', to: '/configuracion', roles: ['ADMIN_SISTEMA', 'ADMIN_RRHH'] }
+    { icon: 'bi-gear', label: 'Configuración', to: '/configuracion', roles: ['ADMIN_SISTEMA'] }
   ]
   return items.filter(item => !item.roles || item.roles.includes(role))
 })

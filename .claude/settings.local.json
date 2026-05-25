@@ -8,7 +8,10 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(curl -s http://localhost:8000/api/asistencia/registrar/ -X POST -H \"Content-Type: application/json\" -d '{\"tipo\":\"ENTRADA\",\"latitud\":0,\"longitud\":0}')",
+      "Bash(curl *)",
+      "Bash(pip install *)"
     ]
   },
   "enabledPlugins": {

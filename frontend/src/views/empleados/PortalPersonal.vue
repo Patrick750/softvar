@@ -23,21 +23,52 @@
         <div class="card-header-primary">
           <h5><i class="bi bi-person-circle me-2"></i>Mi Información</h5>
         </div>
-        <div class="card-body text-center" v-if="employee">
-          <div class="avatar-container mb-3">
+        <div class="card-body" v-if="employee">
+          <div class="avatar-container mb-3 text-center">
             <img v-if="getProfilePhoto(employee.foto_facial)" :src="getProfilePhoto(employee.foto_facial)" alt="Mi Foto" class="avatar avatar-xl avatar-placeholder">
             <div v-else class="avatar avatar-xl avatar-placeholder">
               {{ (employee.nombres?.charAt(0) || '') + (employee.apellidos?.charAt(0) || '') }}
             </div>
           </div>
-          <h4 class="fw-bold mb-1">{{ employee.nombres }} {{ employee.apellidos }}</h4>
-          <p class="text-muted mb-3">{{ employee.cargo }}</p>
+          <h4 class="fw-bold mb-1 text-center">{{ employee.nombres }} {{ employee.apellidos }}</h4>
+          <p class="text-muted mb-3 text-center">{{ employee.cargo }}</p>
           <div class="divider"></div>
-          <div class="info-grid">
+
+          <div v-if="!editing" class="info-grid text-center">
             <div><span class="text-muted">Cédula:</span> <span class="fw-semibold">{{ employee.cedula }}</span></div>
             <div class="mt-2"><span class="text-muted">Email:</span> <span class="fw-semibold">{{ employee.email }}</span></div>
             <div class="mt-2"><span class="text-muted">Teléfono:</span> <span class="fw-semibold">{{ employee.telefono || 'N/A' }}</span></div>
             <div class="mt-2"><span class="text-muted">Fecha Ingreso:</span> <span class="fw-semibold">{{ formatDate(employee.fecha_ingreso) }}</span></div>
+          </div>
+
+          <form v-if="editing" @submit.prevent="saveEdit" class="mt-3">
+            <div class="mb-3">
+              <label class="form-label">Nombres</label>
+              <input type="text" class="form-input" v-model="editedEmployee.nombres" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Apellidos</label>
+              <input type="text" class="form-input" vmodel="editedEmployee.apellidos" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Teléfono</label>
+              <input type="tel" class="form-input" v-model="editedEmployee.telefono" placeholder="Opcional">
+            </div>
+            <div class="flex-row gap-sm mt-3">
+              <button type="submit" class="btn btn-primary flex-1">
+                <span v-if="saving" class="spinner spinner-sm me-2"></span>
+                Guardar Cambios
+              </button>
+              <button type="button" class="btn btn-outline flex-1" @click="cancelEdit">
+                Cancelar
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-3 text-center">
+            <button class="btn btn-outline-primary" @click="startEdit">
+              <i class="bi bi-pencil me-2"></i>Editar Información
+            </button>
           </div>
         </div>
       </div>
@@ -142,6 +173,11 @@ export default {
 
     const passwordForm = ref({ current: '', new: '', confirm: '' })
     const changingPassword = ref(false)
+
+    // Edit profile state
+    const editing = ref(false)
+    const editedEmployee = ref({ nombres: '', apellidos: '', telefono: '' })
+    const saving = ref(false)
 
     const loadData = async () => {
       loading.value = true
@@ -249,6 +285,45 @@ export default {
         addToast('Error', errMsg, 'error')
       } finally {
         changingPassword.value = false
+      }
+    }
+
+    // Edit profile functions
+    const startEdit = () => {
+      if (employee.value) {
+        editedEmployee.value = {
+          nombres: employee.value.nombres,
+          apellidos: employee.value.apellidos,
+          telefono: employee.value.telefono || ''
+        }
+        editing.value = true
+      }
+    }
+
+    const cancelEdit = () => {
+      editing.value = false
+    }
+
+    const saveEdit = async () => {
+      saving.value = true
+      try {
+        await axios.patch(`/api/empleados/${employee.value.id}/`, {
+          nombres: editedEmployee.value.nombres,
+          apellidos: editedEmployee.value.apellidos,
+          telefono: editedEmployee.value.telefono || null
+        })
+        // Update the displayed employee
+        employee.value.nombres = editedEmployee.value.nombres
+        employee.value.apellidos = editedEmployee.value.apellidos
+        employee.value.telefono = editedEmployee.value.telefono || null
+        addToast('Éxito', 'Información actualizada correctamente.', 'success')
+        editing.value = false
+      } catch (err) {
+        console.error('Error updating employee:', err)
+        const errMsg = err.response?.data?.error || 'No se pudo actualizar la información.'
+        addToast('Error', errMsg, 'error')
+      } finally {
+        saving.value = false
       }
     }
 

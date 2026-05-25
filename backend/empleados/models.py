@@ -134,6 +134,7 @@ class Asistencia(models.Model):
         ('FALLIDO', 'Fallido'),
         ('PENDIENTE_APROBACION', 'Pendiente de Aprobación'),
         ('RECHAZADO', 'Rechazado'),
+        ('FRAUDE', 'Intento de fraude'),
     ]
 
     id = models.AutoField(primary_key=True)

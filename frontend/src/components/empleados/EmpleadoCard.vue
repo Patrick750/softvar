@@ -3,8 +3,8 @@
     <div class="card-header-avatar">
       <div class="avatar-container">
         <img
-          v-if="empleado.foto_facial"
-          :src="empleado.foto_facial"
+          v-if="getProfilePhoto()"
+          :src="getProfilePhoto()"
           alt="Foto de empleado"
           class="avatar-img"
         >
@@ -92,10 +92,23 @@ export default {
       }
     }
 
+    const getProfilePhoto = () => {
+      const foto = props.empleado.foto_facial
+      if (!foto) return null
+      try {
+        const parsed = typeof foto === 'string' ? JSON.parse(foto) : foto
+        return parsed.image || null
+      } catch (e) {
+        // Si no es JSON, asumir que es una URL directa
+        return foto
+      }
+    }
+
     return {
       formatoMoneda,
       obtenerTipoContrato,
       eliminarEmpleado,
+      getProfilePhoto,
       getInitials: (props.empleado.nombres ? props.empleado.nombres.charAt(0) : '?') +
         (props.empleado.apellidos ? props.empleado.apellidos.charAt(0) : '?')
     }

@@ -3,8 +3,8 @@
     <td class="td-avatar">
       <div class="table-avatar">
         <img
-          v-if="empleado.foto_facial"
-          :src="empleado.foto_facial"
+          v-if="getProfilePhoto()"
+          :src="getProfilePhoto()"
           alt="Foto"
           class="avatar-img-sm"
         >
@@ -70,13 +70,24 @@ export default {
     const getInitials = (props.empleado.nombres ? props.empleado.nombres.charAt(0) : '?') +
       (props.empleado.apellidos ? props.empleado.apellidos.charAt(0) : '?')
 
+    const getProfilePhoto = () => {
+      const foto = props.empleado.foto_facial
+      if (!foto) return null
+      try {
+        const parsed = typeof foto === 'string' ? JSON.parse(foto) : foto
+        return parsed.image || null
+      } catch (e) {
+        return foto
+      }
+    }
+
     const eliminarEmpleado = (id) => {
       if (confirm('¿Está seguro de eliminar este empleado?')) {
         emit('eliminar', id)
       }
     }
 
-    return { getInitials, eliminarEmpleado }
+    return { getInitials, getProfilePhoto, eliminarEmpleado }
   }
 }
 </script>

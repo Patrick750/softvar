@@ -112,6 +112,37 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         if user:
             user.delete()
 
+    def _maybe_restrict_fields(self, request, employee_id):
+        if not employee_id:
+            return
+        user = request.user
+        try:
+            employee_obj = Empleado.objects.get(id=employee_id)
+        except Empleado.DoesNotExist:
+            # Let the normal flow handle 404
+            return
+        if user.empleado and user.empleado.id == employee_obj.id:
+            user_role = get_user_role(user)
+            if user_role not in ['ADMIN_RRHH', 'ADMIN_SISTEMA']:
+                allowed_fields = {'nombres', 'apellidos', 'telefono'}
+                # We need to modify request.data
+                # Since request.data might be a QueryDict, we make it mutable
+                if hasattr(request.data, '_mutable'):
+                    request.data._mutable = True
+                for key in list(request.data.keys()):
+                    if key not in allowed_fields:
+                        del request.data[key]
+                if hasattr(request.data, '_mutable'):
+                    request.data._mutable = False
+
+    def partial_update(self, request, *args, **kwargs):
+        self._maybe_restrict_fields(request, kwargs.get('pk'))
+        return super().partial_update(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        self._maybe_restrict_fields(request, kwargs.get('pk'))
+        return super().update(request, *args, **kwargs)
+
 
 import math
 import json
@@ -234,11 +265,12 @@ def registrar_asistencia_view(request):
     if not solicitar_manual and Asistencia.objects.filter(
         empleado=empleado,
         tipo=tipo,
+        estado__in=['EXITO', 'PENDIENTE_APROBACION'],
         fecha_hora__date=timezone.localdate(),
     ).exists():
         tipo_label = 'entrada' if tipo == 'ENTRADA' else 'salida'
         return Response({
-            'error': f'Ya registraste tu {tipo_label} hoy. No puedes registrar otra {tipo_label} el mismo día.',
+            'message': f'Ya registraste tu {tipo_label} hoy. No puedes registrar otra {tipo_label} el mismo día.',
             'status': 'DUPLICADO'
         }, status=status.HTTP_400_BAD_REQUEST)
         
@@ -303,36 +335,48 @@ def registrar_asistencia_view(request):
         face_ok = False # Face biometrics is mandatory for automatic validation
 
     if not gps_ok or not face_ok:
-        # Build detailed observaciones
-        failure_reasons = []
-        if not gps_ok:
-            failure_reasons.append(f"GPS fuera de rango (Distancia={distancia:.1f}m)")
-        if not face_ok:
-            if no_facial_data:
-                failure_reasons.append("No hay foto facial registrada para este empleado")
-            elif face_score is None:
-                failure_reasons.append("No se pudo calcular la comparación facial")
-            else:
-                failure_reasons.append(f"Rostro no coincide (Score={face_score:.3f}, umbral=0.6)")
-        
-        obs = "Fallo de verificación. " + ". ".join(failure_reasons)
-        
-        # Save as failed attempt
+        # Determine type of failure
+        if not face_ok and gps_ok:
+            # Facial mismatch -> potential fraud
+            estado = 'FRAUDE'
+            observaciones = f"Intento de fraude facial detectado. Score={face_score:.3f}, umbral=0.6"
+            audit_action = 'INTENTO_FRAUDE_ASISTENCIA'
+            message = 'Intento de fraude detectado. Rostro no coincide con el registrado.'
+            status_code = status.HTTP_400_BAD_REQUEST
+        else:
+            # GPS failure or both -> regular failed attempt
+            estado = 'FALLIDO'
+            failure_reasons = []
+            if not gps_ok:
+                failure_reasons.append(f"GPS fuera de rango (Distancia={distancia:.1f}m)")
+            if not face_ok:
+                if no_facial_data:
+                    failure_reasons.append("No hay foto facial registrada para este empleado")
+                elif face_score is None:
+                    failure_reasons.append("No se pudo calcular la comparación facial")
+                else:
+                    failure_reasons.append(f"Rostro no coincide (Score={face_score:.3f}, umbral=0.6)")
+            observaciones = "Fallo de verificación. " + ". ".join(failure_reasons)
+            audit_action = 'INTENTO_FALLIDO_ASISTENCIA'
+            message = 'No se pudo verificar su asistencia de forma automática.'
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        # Save attempt
         asistencia = Asistencia.objects.create(
             empleado=empleado,
             tipo=tipo,
-            estado='FALLIDO',
+            estado=estado,
             latitud=latitud_cap,
             longitud=longitud_cap,
             verificacion_facial_score=face_score,
             liveness_score=liveness_score_cap,
             liveness_validated=liveness_validated_cap,
-            observaciones=obs
+            observaciones=observaciones
         )
-        
+
         # Auditoría log
         registrar_auditoria(
-            user, 'INTENTO_FALLIDO_ASISTENCIA', 'asistencias', asistencia.id,
+            user, audit_action, 'asistencias', asistencia.id,
             None,
             {
                 'tipo': tipo,
@@ -345,15 +389,15 @@ def registrar_asistencia_view(request):
             },
             request
         )
-        
+
         return Response({
-            'status': 'FALLIDO',
+            'status': estado,
             'gps_ok': gps_ok,
             'face_ok': face_ok,
             'distancia': distancia,
             'face_score': face_score,
-            'message': 'No se pudo verificar su asistencia de forma automática.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'message': message
+        }, status=status_code)
 
     # Validation succeeds!
     asistencia = Asistencia.objects.create(
@@ -476,11 +520,8 @@ def configuracion_parametros_view(request):
     Requiere rol ADMIN_SISTEMA (crear/actualizar parámetros) o ADMIN_RRHH (solo lectura).
     """
     role = get_user_role(request.user)
-    if role not in ['ADMIN_SISTEMA', 'ADMIN_RRHH']:
-        return Response({'error': 'No tienes permiso para acceder a esta configuración'}, status=status.HTTP_403_FORBIDDEN)
-    
-    if request.method == 'POST' and role != 'ADMIN_SISTEMA':
-        return Response({'error': 'Solo el Administrador del Sistema puede modificar parámetros'}, status=status.HTTP_403_FORBIDDEN)
+    if role != 'ADMIN_SISTEMA':
+        return Response({'error': 'Solo el Administrador del Sistema puede acceder a esta configuración'}, status=status.HTTP_403_FORBIDDEN)
     if request.method == 'GET':
         params = ParametroSistema.objects.all()
         data = {p.clave: {'valor': p.valor, 'descripcion': p.descripcion} for p in params}
@@ -525,8 +566,8 @@ def configuracion_parametros_view(request):
 @permission_classes([permissions.IsAuthenticated])
 def auditoria_logs_view(request):
     role = get_user_role(request.user)
-    if role not in ['ADMIN_SISTEMA', 'ADMIN_RRHH']:
-        return Response({'error': 'No tienes permiso para ver la auditoría'}, status=status.HTTP_403_FORBIDDEN)
+    if role != 'ADMIN_SISTEMA':
+        return Response({'error': 'Solo el Administrador del Sistema puede ver la auditoría'}, status=status.HTTP_403_FORBIDDEN)
     qs = Auditoria.objects.all()[:100] # Limit to 100 logs
     data = []
     for log in qs:

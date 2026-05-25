@@ -73,7 +73,7 @@ const routes = [
     path: '/configuracion',
     name: 'configuracion-index',
     component: () => import('@/views/configuracion/Index.vue'),
-    meta: { requiresAuth: true, roles: ['ADMIN_SISTEMA', 'ADMIN_RRHH'] }
+    meta: { requiresAuth: true, roles: ['ADMIN_SISTEMA'] }
   },
   {
     path: '/login',
