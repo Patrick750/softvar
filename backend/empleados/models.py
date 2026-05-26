@@ -159,6 +159,68 @@ class Asistencia(models.Model):
         return f"{self.empleado} - {self.tipo} - {self.fecha_hora.strftime('%Y-%m-%d %H:%M') if self.fecha_hora else ''}"
 
 
+class LiquidacionNomina(models.Model):
+    id = models.AutoField(primary_key=True)
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='liquidaciones')
+    periodo_inicio = models.DateField()
+    periodo_fin = models.DateField()
+    salario_base = models.DecimalField(max_digits=12, decimal_places=2)
+    valor_hora = models.DecimalField(max_digits=10, decimal_places=2)
+    horas_trabajadas = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    horas_extra_diurnas = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    horas_extra_nocturnas = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    horas_dominicales = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    recargo_diurno = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    recargo_nocturno = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    recargo_dominical = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_devengado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    descuento_salud = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    descuento_pension = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    descuento_arl = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_deducciones = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    neto_pagar = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    dias_liquidados = models.IntegerField(default=0)
+    estado = models.CharField(max_length=20, choices=[
+        ('CALCULADA', 'Calculada'),
+        ('LIQUIDADA', 'Liquidada'),
+        ('ANULADA', 'Anulada'),
+    ], default='CALCULADA')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'liquidaciones_nomina'
+        unique_together = ['empleado', 'periodo_inicio', 'periodo_fin']
+        ordering = ['-periodo_fin', 'empleado__apellidos']
+
+    def __str__(self):
+        return f"{self.empleado} - {self.periodo_inicio} a {self.periodo_fin}"
+
+
+class Desprendible(models.Model):
+    id = models.AutoField(primary_key=True)
+    liquidacion = models.ForeignKey(LiquidacionNomina, on_delete=models.CASCADE, related_name='desprendibles')
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='desprendibles')
+    periodo = models.CharField(max_length=7, help_text='Formato YYYY-MM')
+    archivo_pdf = models.TextField(blank=True, null=True, help_text='Contenido base64 del PDF')
+    estado = models.CharField(max_length=20, choices=[
+        ('GENERADO', 'Generado'),
+        ('ENVIADO', 'Enviado'),
+        ('FALLIDO', 'Fallido'),
+    ], default='GENERADO')
+    fecha_generacion = models.DateTimeField(auto_now_add=True)
+    fecha_envio = models.DateTimeField(blank=True, null=True)
+    email_enviado_a = models.EmailField(max_length=254, blank=True, null=True)
+    error_mensaje = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'desprendibles'
+        ordering = ['-fecha_generacion']
+
+    def __str__(self):
+        return f"Desprendible {self.empleado} - {self.periodo}"
+
+
 class Auditoria(models.Model):
     id = models.AutoField(primary_key=True)
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='auditorias')

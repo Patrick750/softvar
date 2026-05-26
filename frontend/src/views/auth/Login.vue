@@ -745,9 +745,11 @@ export default {
 .banner-content {
   position: relative;
   z-index: 2;
-  max-width: 560px;
+  width: 100%;
+  max-width: none;
   padding: 3rem 2rem;
   text-align: center;
+  box-sizing: border-box;
 }
 
 /* Tagline */

@@ -164,17 +164,20 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
+import axios from 'axios'
 
 export default {
   setup() {
+    const addToast = inject('addToast', () => {})
+
     const meses = {
       1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
       5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
       9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
     }
 
-    const periodo = ref({ mes: '', ano: new Date().getFullYear() })
+    const periodo = ref({ mes: new Date().getMonth() + 1, ano: new Date().getFullYear() })
     const nominaGenerada = ref(false)
     const generando = ref(false)
     const detalleNomina = ref([])
@@ -182,45 +185,43 @@ export default {
 
     const periodoLabel = computed(() => `${meses[periodo.value.mes] || ''} ${periodo.value.ano}`)
 
+    // Convertir mes/año a rango de fechas YYYY-MM-DD
+    const getFechaInicio = () => `${periodo.value.ano}-${String(periodo.value.mes).padStart(2, '0')}-01`
+    const getFechaFin = () => {
+      // Último día del mes
+      const ultimoDia = new Date(periodo.value.ano, periodo.value.mes, 0).getDate()
+      return `${periodo.value.ano}-${String(periodo.value.mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
+    }
+
     const generarNomina = async () => {
-      if (!periodo.value.mes || !periodo.value.ano) return
+      if (!periodo.value.mes || !periodo.value.ano) {
+        addToast('Advertencia', 'Seleccione mes y año para generar la nómina.', 'warning')
+        return
+      }
       generando.value = true
 
       try {
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        const payload = {
+          periodo_inicio: getFechaInicio(),
+          periodo_fin: getFechaFin(),
+        }
+        const { data } = await axios.post('/api/nomina/calcular/', payload)
 
-        const empleadosEjemplo = [
-          { id: 1, nombres: 'Juan', apellidos: 'Pérez Gómez', cedula: '1020304050', cargo: 'Asistente Administrativo', salario_base: 2000000, horas_extra_diurnas: 10, horas_extra_nocturnas: 5 },
-          { id: 2, nombres: 'María', apellidos: 'López Rivera', cedula: '1030405060', cargo: 'Analista de RRHH', salario_base: 2800000, horas_extra_diurnas: 8, horas_extra_nocturnas: 3 },
-          { id: 3, nombres: 'Carlos', apellidos: 'Rodríguez Silva', cedula: '1040506070', cargo: 'Desarrollador Junior', salario_base: 3200000, horas_extra_diurnas: 12, horas_extra_nocturnas: 0 }
-        ]
-
-        detalleNomina.value = empleadosEjemplo.map(emp => {
-          const salarioBase = emp.salario_base
-          const heDiurnasValor = emp.horas_extra_diurnas * (salarioBase / 240) * 1.25
-          const heNocturnasValor = emp.horas_extra_nocturnas * (salarioBase / 240) * 1.75
-          const devengadoTotal = salarioBase + heDiurnasValor + heNocturnasValor
-          const descuentoSalud = devengadoTotal * 0.04
-          const descuentoPension = devengadoTotal * 0.04
-          return {
-            ...emp,
-            devengado_total: devengadoTotal,
-            descuento_salud: descuentoSalud,
-            descuento_pension: descuentoPension,
-            deducciones_total: descuentoSalud + descuentoPension,
-            neto_pagar: devengadoTotal - (descuentoSalud + descuentoPension)
-          }
-        })
+        detalleNomina.value = data.resultados.filter(r => !r.error)
 
         nominaGenerada.value = true
         resumen.value = {
-          totalEmpleados: detalleNomina.value.length,
-          nominaTotal: detalleNomina.value.reduce((s, e) => s + e.neto_pagar, 0),
-          totalDevengados: detalleNomina.value.reduce((s, e) => s + e.devengado_total, 0),
-          totalDeducciones: detalleNomina.value.reduce((s, e) => s + e.deducciones_total, 0)
+          totalEmpleados: data.total_empleados,
+          nominaTotal: parseFloat(data.total_neto),
+          totalDevengados: parseFloat(data.total_devengados),
+          totalDeducciones: parseFloat(data.total_deducciones),
         }
+
+        addToast('Éxito', `Nómina generada para ${periodoLabel.value}. ${detalleNomina.value.length} empleados liquidados.`, 'success')
       } catch (err) {
-        console.error('Error:', err)
+        console.error('Error generando nómina:', err)
+        const errMsg = err.response?.data?.error || 'Error al generar la nómina.'
+        addToast('Error', errMsg, 'error')
       } finally {
         generando.value = false
       }
@@ -229,10 +230,14 @@ export default {
     const formatoMoneda = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(v || 0)
     const formatNumber = (v) => new Intl.NumberFormat('es-CO').format(v || 0)
 
-    const exportarExcel = () => alert('Exportando a Excel...')
-    const exportarACH = () => alert('Generando archivo ACH...')
-
-    onMounted(() => { periodo.value.mes = new Date().getMonth() + 1 })
+    const exportarExcel = () => {
+      // TODO: Implementar en Sprint 4
+      addToast('Información', 'La exportación a Excel estará disponible en una próxima versión.', 'info')
+    }
+    const exportarACH = () => {
+      // TODO: Implementar en Sprint 4
+      addToast('Información', 'La exportación ACH estará disponible en una próxima versión.', 'info')
+    }
 
     return { meses, periodo, nominaGenerada, generando, detalleNomina, resumen, periodoLabel, generarNomina, formatoMoneda, formatNumber, exportarExcel, exportarACH }
   }

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useGpsWatcher } from '@/composables/useGpsWatcher'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,7 +26,15 @@ const handleResize = () => {
   }
 }
 
-onMounted(() => window.addEventListener('resize', handleResize))
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+
+  // Iniciar GPS watcher automáticamente si el usuario está autenticado
+  // (no está en página de login)
+  if (!isAuthPage.value) {
+    startGpsWatcher()
+  }
+})
 onUnmounted(() => window.removeEventListener('resize', handleResize))
 
 // === Navigation items ===
@@ -38,11 +47,27 @@ const navItems = computed(() => {
     { icon: 'bi-clock-history', label: 'Asistencia', to: '/asistencia', roles: ['EMPLEADO', 'ADMIN_RRHH'] },
     { icon: 'bi-check2-square', label: 'Aprobaciones', to: '/asistencia/aprobaciones', roles: ['ADMIN_RRHH'] },
     { icon: 'bi-cash-stack', label: 'Nómina', to: '/nomina', roles: ['CONTADOR', 'ADMIN_RRHH'] },
+    { icon: 'bi-file-earmark-pdf', label: 'Desprendibles', to: '/nomina/desprendibles', roles: ['CONTADOR', 'ADMIN_RRHH'] },
     { icon: 'bi-file-earmark-bar-graph', label: 'Reportes', to: '/reportes', roles: ['GERENTE', 'ADMIN_RRHH', 'CONTADOR'] },
     { icon: 'bi-gear', label: 'Configuración', to: '/configuracion', roles: ['ADMIN_SISTEMA'] }
   ]
   return items.filter(item => !item.roles || item.roles.includes(role))
 })
+
+// === GPS Watcher (precarga continua de coordenadas) ===
+const {
+  coords: gpsCoords,
+  status: gpsStatus,
+  lastUpdated: gpsLastUpdated,
+  startWatcher: startGpsWatcher,
+  resetWatcher: resetGpsWatcher,
+  getCurrentCoords: getGpsCoords,
+} = useGpsWatcher()
+
+provide('gpsCoords', gpsCoords)
+provide('gpsStatus', gpsStatus)
+provide('gpsLastUpdated', gpsLastUpdated)
+provide('getGpsCoords', getGpsCoords)
 
 // === User state ===
 const getInitials = (name) => {
@@ -60,12 +85,17 @@ const user = ref({
 const userDropdownOpen = ref(false)
 
 const logout = () => {
+  // Limpiar localStorage
   localStorage.removeItem('token')
   localStorage.removeItem('userRole')
   localStorage.removeItem('userName')
   localStorage.removeItem('userEmail')
   localStorage.removeItem('userId')
   localStorage.removeItem('locationGranted')
+
+  // Resetear GPS watcher (detiene watchPosition y limpia coordenadas)
+  resetGpsWatcher()
+
   router.push('/login')
 }
 
@@ -99,7 +129,7 @@ const removeToast = (id) => {
 provide('addToast', addToast)
 
 // Monitor for user changes
-watch(() => route.path, () => {
+watch(() => route.path, (newPath, oldPath) => {
   const name = localStorage.getItem('userName')
   user.value = {
     name: name || 'Administrador',
@@ -107,12 +137,33 @@ watch(() => route.path, () => {
     email: localStorage.getItem('userEmail') || '',
     initials: getInitials(name) || 'AD'
   }
+
+  // Al entrar a la app (desde login hacia adentro), iniciar GPS
+  const wasOnAuthPage = oldPath === '/login' || oldPath === '/reset-password'
+  const isNowOnApp = newPath !== '/login' && newPath !== '/reset-password'
+  if (wasOnAuthPage && isNowOnApp) {
+    startGpsWatcher()
+  }
 })
 
 // === Computed ===
 const isAuthPage = computed(() => {
   return route.path === '/login' || route.path === '/reset-password'
 })
+
+const isItemActive = (item) => {
+  // Exact match always works
+  if (route.path === item.to) return true
+  // Root path only matches exactly
+  if (item.to === '/') return false
+  // For parent items that have visible child nav items, only match exact
+  const hasVisibleChild = navItems.value.some(
+    other => other.to !== item.to && other.to.startsWith(item.to + '/')
+  )
+  if (hasVisibleChild) return false
+  // Otherwise check if the route starts with this item's path + '/'
+  return route.path.startsWith(item.to + '/')
+}
 
 const pageTitle = computed(() => {
   const item = navItems.value.find(n => route.path.startsWith(n.to) && n.to !== '/')
@@ -183,7 +234,7 @@ const roleBadgeClass = computed(() => {
               <router-link
                 :to="item.to"
                 class="nav-link"
-                :class="{ active: route.path === item.to || (item.to !== '/' && route.path.startsWith(item.to)) }"
+                :class="{ active: isItemActive(item) }"
                 @click="isMobile && (mobileSidebarOpen = false)"
               >
                 <i :class="`bi ${item.icon}`" class="nav-icon"></i>

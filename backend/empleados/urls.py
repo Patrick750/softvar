@@ -5,7 +5,9 @@ from .views import (
     registrar_asistencia_view, historial_asistencia_view,
     asistencias_pendientes_view, aprobar_asistencia_view,
     configuracion_parametros_view, auditoria_logs_view,
-    get_mi_perfil_view, cambiar_contrasena_view
+    get_mi_perfil_view, cambiar_contrasena_view,
+    calcular_nomina_view, listar_liquidaciones_view,
+    generar_desprendible_view, enviar_desprendible_view
 )
 
 router = DefaultRouter()
@@ -24,5 +26,14 @@ urlpatterns = [
     path('auditoria/logs/', auditoria_logs_view, name='auditoria-logs'),
     
     path('empleados/me/', get_mi_perfil_view, name='empleado-me'),
+
+    # Nómina
+    path('nomina/calcular/', calcular_nomina_view, name='nomina-calcular'),
+    path('nomina/liquidaciones/', listar_liquidaciones_view, name='nomina-liquidaciones'),
+
+    # Desprendibles PDF
+    path('desprendibles/generar/', generar_desprendible_view, name='desprendibles-generar'),
+    path('desprendibles/enviar/', enviar_desprendible_view, name='desprendibles-enviar'),
+
     path('', include(router.urls)),
 ]

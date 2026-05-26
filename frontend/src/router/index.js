@@ -58,6 +58,12 @@ const routes = [
     meta: { requiresAuth: true, roles: ['CONTADOR', 'ADMIN_RRHH'] }
   },
   {
+    path: '/nomina/desprendibles',
+    name: 'nomina-desprendibles',
+    component: () => import('@/views/nomina/DesprendiblesPdf.vue'),
+    meta: { requiresAuth: true, roles: ['CONTADOR', 'ADMIN_RRHH'] }
+  },
+  {
     path: '/reportes',
     name: 'reportes-dashboard',
     component: () => import('@/views/reportes/DashboardReportes.vue'),
