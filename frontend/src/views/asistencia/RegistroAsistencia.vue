@@ -238,19 +238,9 @@ export default {
     const todayAttendances = ref([])
     const isProcessing = ref(false)
     const loadingEmployee = ref(true)
-    // GPS coordinates: usar caché global del watcher en App.vue
-    const gpsCoordsCache = inject('gpsCoords', reactive({ lat: null, lon: null, accuracy: null }))
-    const gpsStatusGlobal = inject('gpsStatus', ref('idle'))
-    const getGpsCoords = inject('getGpsCoords', () => ({ lat: null, lon: null }))
-
-    // GPS status — sincronizado con el watcher global cuando no está activamente buscando
-    const gpsStatus = ref(gpsStatusGlobal.value === 'watching' ? 'fetching' : 'idle')
+    const gpsStatus = ref('idle') // 'idle', 'fetching', 'success', 'error'
     const currentCoords = reactive({ lat: null, lon: null })
     const locationPreviouslyGranted = ref(localStorage.getItem('locationGranted') === 'true')
-
-    // Referencias al polling para limpiar en onUnmounted
-    let pollingInterval = null
-    let pollingTimeout = null
     
     // Form selections
     const selectedTipo = ref('ENTRADA')
@@ -388,75 +378,32 @@ export default {
       if (video) video.srcObject = null
     }
 
-    // Get position via GPS — primero usa la caché global del watcher
+    // Get position via GPS
     const getCoordinates = () => {
       return new Promise((resolve, reject) => {
-        // 1. Intentar usar coordenadas cacheadas del watchPosition continuo
-        const cached = getGpsCoords()
-        if (cached.lat !== null && cached.lon !== null) {
-          currentCoords.lat = cached.lat
-          currentCoords.lon = cached.lon
-          gpsStatus.value = 'success'
-          resolve({ latitude: cached.lat, longitude: cached.lon })
-          return
-        }
-
-        // 2. Si el watcher global está activo pero aún sin datos, esperar breve
-        if (gpsStatusGlobal.value === 'watching') {
-          // El watcher ya está corriendo, darle un momento
-          gpsStatus.value = 'fetching'
-          pollingInterval = setInterval(() => {
-            const coords = getGpsCoords()
-            if (coords.lat !== null && coords.lon !== null) {
-              clearInterval(pollingInterval)
-              pollingInterval = null
-              clearTimeout(pollingTimeout)
-              pollingTimeout = null
-              currentCoords.lat = coords.lat
-              currentCoords.lon = coords.lon
-              gpsStatus.value = 'success'
-              resolve({ latitude: coords.lat, longitude: coords.lon })
-            }
-          }, 200)
-
-          pollingTimeout = setTimeout(() => {
-            clearInterval(pollingInterval)
-            pollingInterval = null
-            pollingTimeout = null
-            // 3. Timeout — fallback a getCurrentPosition
-            fallbackGetCurrentPosition(resolve, reject)
-          }, 4000)
-          return
-        }
-
-        // 3. Sin caché ni watcher activo — obtener directamente
-        fallbackGetCurrentPosition(resolve, reject)
-      })
-    }
-
-    // Fallback: obtener coordenadas directamente con getCurrentPosition
-    const fallbackGetCurrentPosition = (resolve, reject) => {
-      gpsStatus.value = 'fetching'
-      if (!navigator.geolocation) {
-        gpsStatus.value = 'error'
-        reject(new Error('Geolocalización no soportada por el navegador.'))
-        return
-      }
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          currentCoords.lat = position.coords.latitude
-          currentCoords.lon = position.coords.longitude
-          gpsStatus.value = 'success'
-          localStorage.setItem('locationGranted', 'true')
-          resolve(position.coords)
-        },
-        (err) => {
-          console.error('GPS error:', err)
+        gpsStatus.value = 'fetching'
+        if (!navigator.geolocation) {
           gpsStatus.value = 'error'
-          reject(err)
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-      )
+          reject(new Error('Geolocalización no soportada por el navegador.'))
+          return
+        }
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            currentCoords.lat = position.coords.latitude
+            currentCoords.lon = position.coords.longitude
+            gpsStatus.value = 'success'
+            // Guardar en localStorage que el usuario aprobó la ubicación
+            localStorage.setItem('locationGranted', 'true')
+            resolve(position.coords)
+          },
+          (err) => {
+            console.error('GPS error:', err)
+            gpsStatus.value = 'error'
+            reject(err)
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        )
+      })
     }
 
     const captureAndVerify = async () => {
@@ -624,31 +571,24 @@ export default {
       return date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
     }
 
+    // Precargar coordenadas GPS automáticamente si el permiso ya fue concedido
+    const prefetchCoordinates = async () => {
+      if (!locationPreviouslyGranted.value) return
+      try {
+        await getCoordinates()
+        console.log('GPS coordenadas precargadas automáticamente (permiso previamente concedido)')
+      } catch (err) {
+        // Silencioso — no molestar al usuario si falla la precarga
+        console.warn('Precarga de GPS no disponible:', err.message)
+      }
+    }
+
     onMounted(async () => {
       await loadData()
-      // No es necesario precargar GPS aquí — el watcher global en App.vue
-      // ya está corriendo las coordenadas en segundo plano.
-      // Solo mostrar el estado actual de la caché si hay datos.
-      const cached = getGpsCoords()
-      if (cached.lat !== null && cached.lon !== null) {
-        currentCoords.lat = cached.lat
-        currentCoords.lon = cached.lon
-        gpsStatus.value = 'success'
-        console.log('GPS coordenadas disponibles desde caché global')
-      }
+      // Precarga silenciosa de GPS si el permiso ya fue concedido
+      prefetchCoordinates()
     })
-    onUnmounted(() => {
-      stopCamera()
-      // Limpiar polling de GPS si está activo
-      if (pollingInterval) {
-        clearInterval(pollingInterval)
-        pollingInterval = null
-      }
-      if (pollingTimeout) {
-        clearTimeout(pollingTimeout)
-        pollingTimeout = null
-      }
-    })
+    onUnmounted(stopCamera)
 
     return {
       isCameraActive,
