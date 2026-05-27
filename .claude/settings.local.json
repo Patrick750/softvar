@@ -12,7 +12,10 @@
       "Bash(curl -s http://localhost:8000/api/asistencia/registrar/ -X POST -H \"Content-Type: application/json\" -d '{\"tipo\":\"ENTRADA\",\"latitud\":0,\"longitud\":0}')",
       "Bash(curl *)",
       "Bash(pip install *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(.cspecify\\\\scripts\\\\powershell\\\\setup-plan.ps1 *)",
+      "PowerShell(& .\\\\.specify\\\\scripts\\\\powershell\\\\setup-plan.ps1 -Json)",
+      "PowerShell(git checkout *)"
     ]
   },
   "enabledPlugins": {

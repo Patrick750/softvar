@@ -186,7 +186,7 @@ def calcular_distancia_facial(stored_photo_str, captured_descriptor):
         print(f"Error comparing face vectors: {e}")
         return None
 
-from .utils import registrar_auditoria, get_parametro
+from .utils import registrar_auditoria, get_parametro, get_parametros
 
 # Custom permission helpers based on username/groups
 def get_user_role(user):
@@ -251,11 +251,16 @@ def registrar_asistencia_view(request):
     liveness_validated_cap = request.data.get('liveness_validated', False)
     justificacion = request.data.get('justificacion', '')
 
-    # Fetch configuration limits
+    # Fetch configuration limits (una sola consulta a la BD)
     try:
-        lat_oficina = float(get_parametro('OFICINA_LATITUD', '2.927300', 'Latitud centro de la sede'))
-        lon_oficina = float(get_parametro('OFICINA_LONGITUD', '-75.281800', 'Longitud centro de la sede'))
-        radio_limite = float(get_parametro('OFICINA_RADIO_METROS', '100.0', 'Radio permitido en metros'))
+        params_oficina = get_parametros([
+            ('OFICINA_LATITUD', '2.927300', 'Latitud centro de la sede'),
+            ('OFICINA_LONGITUD', '-75.281800', 'Longitud centro de la sede'),
+            ('OFICINA_RADIO_METROS', '100.0', 'Radio permitido en metros'),
+        ])
+        lat_oficina = float(params_oficina['OFICINA_LATITUD'])
+        lon_oficina = float(params_oficina['OFICINA_LONGITUD'])
+        radio_limite = float(params_oficina['OFICINA_RADIO_METROS'])
     except ValueError:
         lat_oficina, lon_oficina, radio_limite = 2.927300, -75.281800, 100.0
 

@@ -40,3 +40,37 @@ def get_parametro(clave, default_val, desc=""):
         defaults={'valor': str(default_val), 'descripcion': desc}
     )
     return param.valor
+
+
+def get_parametros(lista_claves):
+    """
+    Obtiene múltiples parámetros del sistema en UNA SOLA consulta a la base de datos.
+    Los parámetros que no existen se crean automáticamente con valores por defecto.
+    
+    Args:
+        lista_claves: Lista de tuplas (clave, valor_default, descripcion)
+    
+    Returns:
+        dict con {clave: valor}
+    """
+    # Buscar todos los parámetros existentes en una sola consulta
+    claves_buscar = [c[0] for c in lista_claves]
+    existentes = {
+        p.clave: p.valor
+        for p in ParametroSistema.objects.filter(clave__in=claves_buscar)
+    }
+
+    resultado = {}
+    for clave, default_val, desc in lista_claves:
+        if clave in existentes:
+            resultado[clave] = existentes[clave]
+        else:
+            # Crear el parámetro que no existe
+            param = ParametroSistema.objects.create(
+                clave=clave,
+                valor=str(default_val),
+                descripcion=desc
+            )
+            resultado[clave] = param.valor
+
+    return resultado

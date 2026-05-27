@@ -25,9 +25,12 @@
         </div>
         <div class="card-body" v-if="employee">
           <div class="avatar-container mb-3 text-center">
-            <img v-if="getProfilePhoto(employee.foto_facial)" :src="getProfilePhoto(employee.foto_facial)" alt="Mi Foto" class="avatar avatar-xl avatar-placeholder">
-            <div v-else class="avatar avatar-xl avatar-placeholder">
-              {{ (employee.nombres?.charAt(0) || '') + (employee.apellidos?.charAt(0) || '') }}
+            <div class="avatar-section">
+              <img v-if="getProfilePhoto(employee.foto_facial)" :src="getProfilePhoto(employee.foto_facial)" alt="Mi Foto" class="avatar avatar-xl avatar-placeholder">
+              <div v-else class="avatar avatar-xl avatar-placeholder">
+                {{ (employee.nombres?.charAt(0) || '') + (employee.apellidos?.charAt(0) || '') }}
+              </div>
+
             </div>
           </div>
           <h4 class="fw-bold mb-1 text-center">{{ employee.nombres }} {{ employee.apellidos }}</h4>
@@ -48,7 +51,7 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Apellidos</label>
-              <input type="text" class="form-input" vmodel="editedEmployee.apellidos" required>
+              <input type="text" class="form-input" v-model="editedEmployee.apellidos" required>
             </div>
             <div class="mb-3">
               <label class="form-label">Teléfono</label>
@@ -64,6 +67,8 @@
               </button>
             </div>
           </form>
+
+
 
           <div class="mt-3 text-center">
             <button class="btn btn-outline-primary" @click="startEdit">
@@ -343,7 +348,14 @@ export default {
       mostrarTodos,
       getProfilePhoto,
       formatDate,
-      formatDateTime
+      formatDateTime,
+      // Edit profile
+      editing,
+      editedEmployee,
+      saving,
+      startEdit,
+      cancelEdit,
+      saveEdit,
     }
   }
 }

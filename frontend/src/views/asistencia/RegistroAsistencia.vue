@@ -61,6 +61,7 @@
               <span class="spinner"></span>
               <p class="mt-2 text-white text-sm">
                 <template v-if="loadingModels">Cargando modelos IA...</template>
+                <template v-else-if="processingStatus">{{ processingStatus }}</template>
                 <template v-else>Procesando marcación...</template>
               </p>
             </div>
@@ -252,6 +253,9 @@ export default {
     
     // Face detection ready flag
     const faceDetected = ref(false)
+    
+    // Processing step indicator for user feedback
+    const processingStatus = ref('')
 
     // Manual Request Form
     const showManualForm = ref(false)
@@ -381,29 +385,61 @@ export default {
     // Get position via GPS
     const getCoordinates = () => {
       return new Promise((resolve, reject) => {
+        // Reutilizar coordenadas ya cacheadas por la precarga en onMounted
+        if (currentCoords.lat !== null && currentCoords.lon !== null) {
+          gpsStatus.value = 'success'
+          resolve({ latitude: currentCoords.lat, longitude: currentCoords.lon })
+          return
+        }
+
         gpsStatus.value = 'fetching'
         if (!navigator.geolocation) {
           gpsStatus.value = 'error'
           reject(new Error('Geolocalización no soportada por el navegador.'))
           return
         }
+
+        // Estrategia: intentar primero con alta precisión (más rápido en exteriores),
+        // si falla, reintentar sin alta precisión (más rápido en interiores)
         navigator.geolocation.getCurrentPosition(
           (position) => {
             currentCoords.lat = position.coords.latitude
             currentCoords.lon = position.coords.longitude
             gpsStatus.value = 'success'
-            // Guardar en localStorage que el usuario aprobó la ubicación
             localStorage.setItem('locationGranted', 'true')
             resolve(position.coords)
           },
           (err) => {
-            console.error('GPS error:', err)
-            gpsStatus.value = 'error'
-            reject(err)
+            console.warn('GPS alta precisión falló, reintentando sin ella:', err.message)
+            // Reintentar inmediatamente sin alta precisión
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                currentCoords.lat = position.coords.latitude
+                currentCoords.lon = position.coords.longitude
+                gpsStatus.value = 'success'
+                localStorage.setItem('locationGranted', 'true')
+                resolve(position.coords)
+              },
+              (err2) => {
+                console.error('GPS error (fallback):', err2)
+                gpsStatus.value = 'error'
+                reject(err2)
+              },
+              { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+            )
           },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
         )
       })
+    }
+
+    const detectFaceFromCanvas = async (canvas) => {
+      // Note: withFaceLandmarks() is required BEFORE withFaceDescriptor() in @vladmandic/face-api
+      const detection = await window.faceapi.detectSingleFace(
+        canvas,
+        new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+      ).withFaceLandmarks().withFaceDescriptor()
+      return detection
     }
 
     const captureAndVerify = async () => {
@@ -412,6 +448,7 @@ export default {
       if (!video) return
 
       isProcessing.value = true
+      processingStatus.value = 'Preparando verificación...'
 
       Object.assign(verificationState, {
         show: true,
@@ -420,24 +457,18 @@ export default {
         type: 'info'
       })
 
-      try {        // 1. Ensure face models are loaded
+      try {
+        // 1. Ensure face models are loaded
         if (!modelsLoaded.value) {
-            await loadModels()
-            if (!modelsLoaded.value) {
-                // Model loading failed — was already reported via toast
-                return
-            }
+          processingStatus.value = 'Cargando modelos de IA...'
+          await loadModels()
+          if (!modelsLoaded.value) {
+            // Model loading failed — was already reported via toast
+            return
+          }
         }
 
-        // 2. Get Coordinates in parallel with face detection
-        let coords = null
-        try {
-          coords = await getCoordinates()
-        } catch (gpsErr) {
-          console.warn('GPS failed:', gpsErr)
-        }
-
-        // 3. Capture a single frame from the video
+        // 2. Capture a single frame from the video INMEDIATELY
         const canvas = document.createElement('canvas')
         canvas.width = video.videoWidth || 640
         canvas.height = video.videoHeight || 480
@@ -446,15 +477,22 @@ export default {
         const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9)
         capturedImage.value = imageDataUrl
 
-        // Stop camera now
-        stopCamera()        // 4. Detect face and extract descriptor (single pass, instant)
-        // Note: withFaceLandmarks() is required BEFORE withFaceDescriptor() in @vladmandic/face-api
-        const detection = await window.faceapi.detectSingleFace(
-          canvas,
-          new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
-        ).withFaceLandmarks().withFaceDescriptor()
-        
+        // Stop camera now — libera recursos lo antes posible
+        stopCamera()
+
+        // 3. Run GPS + Face detection en PARALELO (no dependen el uno del otro)
+        processingStatus.value = 'Verificando ubicación y rostro...'
+
+        const [coords, detection] = await Promise.all([
+          getCoordinates().catch(gpsErr => {
+            console.warn('GPS failed:', gpsErr)
+            return null
+          }),
+          detectFaceFromCanvas(canvas)
+        ])
+
         if (!detection) {
+          processingStatus.value = ''
           Object.assign(verificationState, {
             show: true,
             message: 'Rostro no detectado',
@@ -467,7 +505,8 @@ export default {
 
         const descriptor = Array.from(detection.descriptor)
 
-        // 5. Send to API for verification
+        // 4. Send to API for verification
+        processingStatus.value = 'Enviando al servidor...'
         const response = await axios.post('/api/asistencia/registrar/', {
           tipo: selectedTipo.value,
           latitud: coords ? coords.latitude : null,
@@ -476,6 +515,7 @@ export default {
         })
 
         // Success!
+        processingStatus.value = ''
         Object.assign(verificationState, {
           show: true,
           message: 'Asistencia registrada con éxito',
@@ -485,9 +525,10 @@ export default {
         addToast('Éxito', 'Asistencia registrada.', 'success')
         loadData()
       } catch (err) {
+        processingStatus.value = ''
         console.error('Verification error:', err)
         const resData = err.response?.data
-        
+
         if (resData) {
           const detailsMsg = resData.message || `GPS_OK: ${resData.gps_ok ? 'Sí' : 'No'} | Facial_OK: ${resData.face_ok ? 'Sí' : 'No'}`
           Object.assign(verificationState, {
@@ -507,6 +548,7 @@ export default {
         showManualForm.value = true
       } finally {
         isProcessing.value = false
+        processingStatus.value = ''
       }
     }
 
@@ -587,6 +629,8 @@ export default {
       await loadData()
       // Precarga silenciosa de GPS si el permiso ya fue concedido
       prefetchCoordinates()
+      // Precargar modelos face-api en segundo plano inmediatamente (sin await)
+      loadModels()
     })
     onUnmounted(stopCamera)
 
@@ -611,6 +655,8 @@ export default {
       verificationIcon,
       // Face detection ready
       faceDetected,
+      // Processing status
+      processingStatus,
       // Methods
       startCamera,
       stopCamera,

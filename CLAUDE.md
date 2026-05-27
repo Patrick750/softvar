@@ -256,6 +256,5 @@ graph TD
 ```
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Implementation plan for this feature: specs/001-temp-plan/plan.md
 <!-- SPECKIT END -->

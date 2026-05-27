@@ -17,7 +17,23 @@
     </div>
 
     <!-- Camera launch -->
-    <div v-else-if="!videoStream" class="camera-trigger" @click="startCamera">
+    <div v-else-if="!videoStream" class="camera-trigger" :class="{ 'camera-trigger-disabled': disabled }" @click="!disabled && startCamera()">
+      <template v-if="disabled">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span style="opacity: 0.5;">Primero ingrese la contraseña</span>
+        <small style="opacity: 0.4;">Capture su foto facial para biometría</small>
+      </template>
+      <template v-else>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span>Iniciar Cámara</span>
+        <small>Capturar foto facial para biometría</small>
+      </template>
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
         <circle cx="12" cy="13" r="4"/>
@@ -38,7 +54,7 @@
         </div>
       </div>
       <div class="video-actions">
-        <button type="button" class="btn btn-primary btn-block" @click="capturePhoto" :disabled="loadingModels || loadingDetection">
+        <button type="button" class="btn btn-primary btn-block" @click="capturePhoto" :disabled="disabled || loadingModels || loadingDetection">
           <svg v-if="!loadingModels && !loadingDetection" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           <span v-if="loadingModels || loadingDetection">Procesando...</span>
           <span v-else>Capturar Foto</span>
@@ -65,7 +81,8 @@ import { ref, onUnmounted, watch } from 'vue'
 export default {
   props: {
     fotoData: { type: [String, Object], default: null },
-    label: { type: String, default: 'Capturar Foto Facial' }
+    label: { type: String, default: 'Capturar Foto Facial' },
+    disabled: { type: Boolean, default: false }
   },
   emits: ['update:fotoData'],
   setup(props, { emit }) {
@@ -91,6 +108,7 @@ export default {
       }
     }, { immediate: true })
 
+    // Pre-load models as soon as component mounts (no esperar a que el usuario haga clic)
     const loadModels = async () => {
       if (modelsLoaded.value) return
       if (loadingModels.value && modelsLoadingPromise) {
@@ -100,8 +118,9 @@ export default {
       error.value = ''
       const promise = (async () => {
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'
+        // Usar TinyFaceDetector en lugar de ssdMobilenetv1 (~5x más rápido)
         await Promise.all([
-          window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
           window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ])
@@ -120,7 +139,11 @@ export default {
       }
     }
 
+    // Iniciar precarga inmediatamente
+    loadModels()
+
     const startCamera = async () => {
+      if (props.disabled) return
       try {
         error.value = ''
         // Pre-load models in parallel so they are ready
@@ -142,7 +165,7 @@ export default {
     }
 
     const capturePhoto = async () => {
-      if (!videoStream.value) return
+      if (props.disabled || !videoStream.value) return
       error.value = ''
       const video = document.getElementById('videoPreview')
       if (!video) return
@@ -159,11 +182,11 @@ export default {
         const ctx = canvas.getContext('2d')
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-        // 3. Detect face and extract descriptor (single pass, instant)
+        // 3. Detect face and extract descriptor with TinyFaceDetector (mucho más rápido)
         // Note: withFaceLandmarks() is required BEFORE withFaceDescriptor() in @vladmandic/face-api
         const detection = await window.faceapi.detectSingleFace(
           canvas,
-          new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+          new window.faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
         ).withFaceLandmarks().withFaceDescriptor()
         
         if (!detection) {
@@ -253,6 +276,17 @@ export default {
   border-color: var(--color-primary-500);
   color: var(--color-primary-700);
   background: var(--color-primary-50);
+}
+
+.camera-trigger-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.camera-trigger-disabled:hover {
+  border-color: var(--color-neutral-border);
+  color: var(--color-neutral-text-secondary);
+  background: var(--color-neutral-bg-page);
 }
 
 .camera-trigger span {
