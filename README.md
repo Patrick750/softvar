@@ -37,9 +37,8 @@ Sistema web integral para la gestión de **control de asistencia** y **liquidaci
 | **Registro de asistencia** | Reconocimiento facial (face-api.js, similitud ≥ 80%) + GPS (radio 100 m) |
 | **Portal personal** | Historial de asistencias, marcación entrada/salida, cambio de contraseña |
 | **Liquidación de nómina** | Motor de cálculo: HE diurnas (25%), nocturnas (75%), salud (4%), pensión (4%) |
-| **Desprendibles PDF** | Generación y envío masivo por correo electrónico |
+| **Desprendibles PDF** | Generación de PDF con diseño profesional (logo, devengados, deducciones, neto), envío individual y masivo por correo electrónico |
 | **Dashboard de reportes** | Gráficas interactivas con Chart.js conectado a datos reales de la BD |
-| **Envío masivo desprendibles** | Envío de PDF por correo a todos los empleados de un período |
 | **Reenvío de credenciales** | Botón en tarjeta/tabla de empleados para reenviar credenciales por correo |
 | **Exportación ACH** | Archivo .txt delimitado por entidad bancaria |
 | **Auditoría** | Registro inmutable de cambios en el sistema |
@@ -123,10 +122,12 @@ El frontend (Vue 3 SPA) se comunica con el backend (Django REST Framework) a tra
 │   │   │   └── test_api.py
 │   │   ├── admin.py                   # Panel admin Django
 │   │   ├── apps.py                    # Configuración app
-│   │   ├── models.py                  # Modelo Empleado
-│   │   ├── serializers.py             # Serializador REST
+│   │   ├── models.py                  # Modelos: Empleado, Asistencia, LiquidacionNomina, Desprendible, Auditoria, ParametroSistema
+│   │   ├── nomina_engine.py           # Motor de cálculo de nómina (CST colombiano)
+│   │   ├── serializers.py             # Serializador REST + envío credenciales por correo
 │   │   ├── urls.py                    # Rutas API
-│   │   └── views.py                   # Vistas y API endpoints
+│   │   ├── utils.py                   # Utilidades: auditoría, parámetros del sistema
+│   │   └── views.py                   # Vistas: API endpoints (asistencia, nómina, desprendibles PDF, reportes)
 │   ├── asgi.py                        # Configuración ASGI
 │   ├── settings.py                    # Configuración Django
 │   ├── urls.py                        # Rutas raíz
@@ -209,27 +210,27 @@ El frontend (Vue 3 SPA) se comunica con el backend (Django REST Framework) a tra
 
 ### Endpoints
 
-| Método | Endpoint | Autenticación | Descripción |
-|--------|----------|---------------|-------------|
-| `GET` | `/api/auth/csrf/` | No | Obtener token CSRF |
-| `POST` | `/api/auth/login/` | No | Inicio de sesión |
-| `GET` | `/api/empleados/` | Sí | Listar empleados |
-| `POST` | `/api/empleados/` | Sí | Crear empleado |
-| `GET` | `/api/empleados/{id}/` | Sí | Detalle empleado |
-| `PUT` | `/api/empleados/{id}/` | Sí | Actualizar empleado |
-| `PATCH` | `/api/empleados/{id}/` | Sí | Actualización parcial |
-| `DELETE` | `/api/empleados/{id}/` | Sí | Eliminar empleado |
+| Método | Endpoint | Roles permitidos | Descripción |
+|--------|----------|-----------------|-------------|
+| `GET` | `/api/auth/csrf/` | Público | Obtener token CSRF |
+| `POST` | `/api/auth/login/` | Público | Inicio de sesión |
+| `GET` | `/api/empleados/` | ADMIN_RRHH | Listar empleados |
+| `POST` | `/api/empleados/` | ADMIN_RRHH | Crear empleado |
+| `GET` | `/api/empleados/{id}/` | ADMIN_RRHH | Detalle empleado |
+| `PUT` | `/api/empleados/{id}/` | ADMIN_RRHH | Actualizar empleado |
+| `PATCH` | `/api/empleados/{id}/` | ADMIN_RRHH | Actualización parcial |
+| `DELETE` | `/api/empleados/{id}/` | ADMIN_RRHH | Eliminar empleado |
 | `POST` | `/api/empleados/{id}/reenviar-credenciales/` | ADMIN_RRHH, ADMIN_SISTEMA | Reenviar credenciales por correo |
-| `GET` | `/api/empleados/me/` | Sí | Perfil del empleado autenticado |
-| `POST` | `/api/asistencia/registrar/` | Sí | Registrar asistencia con biometría + GPS |
-| `GET` | `/api/asistencia/historial/` | Sí | Historial de asistencias |
+| `GET` | `/api/empleados/me/` | Autenticado | Perfil del empleado autenticado |
+| `POST` | `/api/asistencia/registrar/` | EMPLEADO | Registrar asistencia con biometría + GPS |
+| `GET` | `/api/asistencia/historial/` | Autenticado | Historial de asistencias |
 | `GET` | `/api/asistencia/pendientes/` | ADMIN_RRHH | Asistencias pendientes de aprobación |
 | `POST` | `/api/asistencia/aprobar/` | ADMIN_RRHH | Aprobar/rechazar asistencia manual |
 | `POST` | `/api/nomina/calcular/` | CONTADOR, ADMIN_RRHH | Calcular y guardar liquidación de nómina |
 | `GET` | `/api/nomina/liquidaciones/` | CONTADOR, ADMIN_RRHH | Listar liquidaciones existentes |
 | `POST` | `/api/desprendibles/generar/` | CONTADOR, ADMIN_RRHH | Generar PDF de desprendible |
-| `GET` | `/api/desprendibles/enviar/` | CONTADOR, ADMIN_RRHH | Enviar desprendible por correo |
-| `POST` | `/api/desprendibles/enviar-masivo/` | CONTADOR, ADMIN_RRHH | Envío masivo de desprendibles a todo el período |
+| `POST` | `/api/desprendibles/enviar/` | CONTADOR, ADMIN_RRHH | Enviar desprendible por correo (individual) |
+| `POST` | `/api/desprendibles/enviar-masivo/` | CONTADOR, ADMIN_RRHH | Envío masivo de desprendibles a todo un período |
 | `GET` | `/api/reportes/dashboard/` | GERENTE, ADMIN_RRHH, CONTADOR | KPIs reales desde la BD |
 | `GET` | `/api/configuracion/parametros/` | ADMIN_SISTEMA | Parámetros del sistema (SMMLV) |
 | `GET` | `/api/auditoria/logs/` | ADMIN_SISTEMA | Logs de auditoría |
@@ -276,6 +277,125 @@ Endpoint que retorna KPIs calculados directamente desde la base de datos:
 - `ordering` — Ordenar por nombres, apellidos, salario_base, fecha_ingreso
 - `activo` — Filtrar por estado activo/inactivo
 
+
+### 🧾 Desprendibles PDF — API
+
+Endpoints para generar y enviar desprendibles de nómina en formato PDF.
+
+#### `POST /api/desprendibles/generar/`
+
+Genera el PDF del desprendible para una liquidación específica usando **ReportLab**. El PDF incluye:
+- Logo vectorial de SoftVar S.A.S. y datos del empleador
+- Datos del empleado (nombre, cédula, cargo, período)
+- Tabla de devengados (salario base, horas extra diurnas/nocturnas, dominicales, ajuste SMMLV)
+- Tabla de deducciones (salud 4%, pensión 4%, ARL)
+- Neto a pagar
+
+**Request:**
+```json
+{ "liquidacion_id": 1 }
+```
+
+**Response (200):**
+```json
+{
+  "desprendible_id": 1,
+  "empleado_nombre": "Patrick Ortiz",
+  "periodo": "2026-05",
+  "neto_pagar": "2500000.00",
+  "estado": "GENERADO",
+  "pdf_base64": "JVBERi0xLjcNJS...",
+  "message": "Desprendible generado con éxito."
+}
+```
+
+| Código | Descripción |
+|--------|-------------|
+| `200` | PDF generado exitosamente |
+| `400` | `liquidacion_id` no proporcionado |
+| `403` | Usuario sin permisos (requiere CONTADOR o ADMIN_RRHH) |
+| `404` | Liquidación no encontrada |
+| `500` | Error interno generando PDF |
+
+
+#### `POST /api/desprendibles/enviar/`
+
+Envía el desprendible PDF por correo electrónico al empleado. Si el PDF no existe, lo genera automáticamente antes de enviar. Usa **Gmail SMTP** configurado en `settings.py`.
+
+**Request:**
+```json
+{ "desprendible_id": 1 }
+```
+
+**Response (200):**
+```json
+{
+  "message": "Desprendible enviado con éxito.",
+  "email_enviado_a": "empleado@correo.com",
+  "estado": "ENVIADO"
+}
+```
+
+**Response (500):**
+```json
+{
+  "error": "Error enviando email: (554, ...)"
+}
+```
+
+| Código | Descripción |
+|--------|-------------|
+| `200` | Correo enviado exitosamente |
+| `400` | Empleado sin correo registrado |
+| `403` | Usuario sin permisos |
+| `404` | Desprendible no encontrado |
+| `500` | Error SMTP o generación de PDF |
+
+El correo incluye:
+- Asunto: `Desprendible de Nómina - {periodo} - SoftVar`
+- Cuerpo con nombre del empleado, período y neto a pagar
+- Archivo adjunto: `desprendible_nomina_{periodo}.pdf`
+
+
+#### `POST /api/desprendibles/enviar-masivo/`
+
+Envía desprendibles PDF por correo a **todos los empleados** de un período específico. Genera automáticamente los PDFs que falten. Retorna un resumen del proceso.
+
+**Request:**
+```json
+{ "periodo": "2026-05" }
+```
+
+**Response (200):**
+```json
+{
+  "total": 5,
+  "enviados": 4,
+  "fallidos": 1,
+  "resultados": [
+    {
+      "empleado_id": 1,
+      "empleado_nombre": "Patrick Ortiz",
+      "estado": "ENVIADO",
+      "email": "patrick@correo.com"
+    },
+    {
+      "empleado_id": 2,
+      "empleado_nombre": "María López",
+      "estado": "FALLIDO",
+      "error": "Empleado sin correo electrónico registrado"
+    }
+  ],
+  "message": "Proceso completado: 4 enviados, 1 fallidos de 5 total."
+}
+```
+
+| Código | Descripción |
+|--------|-------------|
+| `200` | Proceso completado (ver `fallidos` para detalles) |
+| `400` | `periodo` no proporcionado o sin liquidaciones |
+| `403` | Usuario sin permisos |
+
 ---
 
 ## 🎨 Frontend — Sistema de Diseño
@@ -311,10 +431,112 @@ El frontend cuenta con 13 vistas/componentes rediseñados con micro-interaccione
 | `/empleados/nuevo` | Crear empleado | ADMIN_RRHH |
 | `/empleados/editar/:id` | Editar empleado | ADMIN_RRHH |
 | `/asistencia` | Registro de asistencia | EMPLEADO, ADMIN_RRHH |
+| `/asistencia/aprobaciones` | Aprobación manual de asistencias | ADMIN_RRHH |
 | `/nomina` | Liquidación de nómina | CONTADOR, ADMIN_RRHH |
+| `/nomina/desprendibles` | Desprendibles PDF (generar y enviar) | CONTADOR, ADMIN_RRHH |
 | `/reportes` | Dashboard | GERENTE, ADMIN_RRHH, CONTADOR |
 | `/reportes/filtros` | Reportes filtrables | GERENTE, ADMIN_RRHH, CONTADOR |
 | `/configuracion` | Configuración del sistema | ADMIN_SISTEMA, ADMIN_RRHH |
+
+---
+
+## 📄 Módulo de Desprendibles PDF — Guía de uso
+
+El módulo de Desprendibles PDF permite al **Contador** y al **Administrador de RRHH** generar y enviar los comprobantes de pago a los empleados.
+
+### Flujo de trabajo
+
+```mermaid
+graph LR
+    CALC[1. Calcular Nómina<br/>/nomina] --> GEN[2. Ir a Desprendibles<br/>/nomina/desprendibles]
+    GEN --> FILTRO[3. Seleccionar período<br/>Buscar Liquidaciones]
+    FILTRO --> TABLA[4. Tabla de empleados<br/>con neto a pagar]
+    TABLA --> INDIV[5a. Generar + Enviar<br/>por empleado]
+    TABLA --> MASIVO[5b. Enviar Todos<br/>acción masiva]
+    INDIV --> AUDIT{Auditoría}
+    MASIVO --> AUDIT
+    AUDIT --> FIN[✅ Proceso completado]
+```
+
+### Pantalla de Desprendibles PDF
+
+La vista cuenta con:
+
+1. **Filtro de período** — Selección de mes y año para buscar las liquidaciones existentes.
+2. **Tabla de liquidaciones** — Muestra todos los empleados del período con:
+   - Nombre, cédula, devengado, deducciones, neto a pagar
+   - **Badge de estado**: `Pendiente` | `Generado` (amarillo) | `Enviado` (verde) | `Fallido` (rojo)
+3. **Acciones por empleado**:
+   - `Generar` — Crea el PDF mediante el endpoint `/api/desprendibles/generar/`
+   - `Enviar` — Envía el PDF por correo al empleado mediante `/api/desprendibles/enviar/`
+   - Descargar — Permite descargar el PDF generado
+4. **Enviar Todos** — Botón en el header de la tabla para envío masivo mediante `/api/desprendibles/enviar-masivo/`
+5. **Modal de resultado** — Al finalizar el envío masivo, muestra un resumen con total, enviados y fallidos
+
+### PDF generado
+
+El desprendible PDF incluye:
+
+| Sección | Contenido |
+|---------|-----------|
+| **Encabezado** | Logo vectorial de SoftVar, nombre empresa, NIT, dirección, teléfono |
+| **Documento** | Título "DESPRENDIBLE DE PAGO" con línea divisoria azul |
+| **Datos del empleado** | Nombre, cédula, cargo, período, días liquidados, salario base |
+| **Devengados** | Salario base, horas extra diurnas (25%), nocturnas (75%), dominicales (75%), ajuste SMMLV si aplica, total devengado |
+| **Deducciones** | Salud (4%), Pensión (4%), ARL (variable), total deducciones |
+| **Neto a pagar** | Destacado en verde con formato moneda COP |
+| **Pie de página** | Datos de la empresa y nota de generación electrónica |
+
+### Modelo de datos — Desprendible
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `id` | AutoField (PK) | Identificador único |
+| `liquidacion` | ForeignKey(LiquidacionNomina) | Liquidación asociada |
+| `empleado` | ForeignKey(Empleado) | Empleado destinatario |
+| `periodo` | CharField(7) | Período en formato YYYY-MM |
+| `archivo_pdf` | TextField | Contenido del PDF en base64 |
+| `estado` | CharField(20) | GENERADO / ENVIADO / FALLIDO |
+| `fecha_generacion` | DateTimeField | Fecha de generación (auto) |
+| `fecha_envio` | DateTimeField (nullable) | Fecha de envío por correo |
+| `email_enviado_a` | EmailField (nullable) | Correo al que se envió |
+| `error_mensaje` | TextField (nullable) | Mensaje de error si falló |
+
+### Configuración de correo
+
+El envío de correos está configurado en `backend/settings.py` usando Gmail SMTP:
+
+```python
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'correo@empresa.com'
+EMAIL_HOST_PASSWORD = 'contraseña_app'
+DEFAULT_FROM_EMAIL = 'correo@empresa.com'
+```
+
+> **Nota:** Para Gmail se requiere usar una **contraseña de aplicación** (App Password) con verificación en dos pasos activada.
+
+### Auditoría
+
+Cada acción sobre desprendibles queda registrada en la tabla `auditoria`:
+
+| Acción | Descripción |
+|--------|-------------|
+| `GENERAR_DESPRENDIBLE` | Se generó un PDF de desprendible |
+| `ENVIAR_DESPRENDIBLE` | Se envió un desprendible por correo |
+| `ENVIAR_DESPRENDIBLE_MASIVO` | Se ejecutó envío masivo de desprendibles |
+| `ERROR_ENVIAR_DESPRENDIBLE` | Falló el envío de un desprendible |
+
+### Estados del desprendible
+
+| Estado | Descripción | Color en UI |
+|--------|-------------|-------------|
+| `Pendiente` | No se ha generado el PDF aún | Gris |
+| `GENERADO` | PDF generado, no enviado | Amarillo (`#854F0B`) |
+| `ENVIADO` | PDF generado y enviado por correo | Verde (`#3B6D11`) |
+| `FALLIDO` | Error en generación o envío | Rojo (`#A32D2D`) |
 
 ---
 
