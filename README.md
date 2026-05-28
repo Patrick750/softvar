@@ -1,6 +1,6 @@
 # SoftVar — Sistema de Control de Asistencia y Nómina
 
-> **Versión:** `1.1.0`  
+> **Versión:** `1.4.0`  
 > **Proyecto:** Propuesta 07 – ADSO 220501094  
 > **Sector:** Recursos Humanos – PyMES, Neiva, Colombia  
 > **Metodología:** Scrum + Kanban
@@ -38,7 +38,9 @@ Sistema web integral para la gestión de **control de asistencia** y **liquidaci
 | **Portal personal** | Historial de asistencias, marcación entrada/salida, cambio de contraseña |
 | **Liquidación de nómina** | Motor de cálculo: HE diurnas (25%), nocturnas (75%), salud (4%), pensión (4%) |
 | **Desprendibles PDF** | Generación y envío masivo por correo electrónico |
-| **Dashboard de reportes** | Gráficas interactivas con Chart.js |
+| **Dashboard de reportes** | Gráficas interactivas con Chart.js conectado a datos reales de la BD |
+| **Envío masivo desprendibles** | Envío de PDF por correo a todos los empleados de un período |
+| **Reenvío de credenciales** | Botón en tarjeta/tabla de empleados para reenviar credenciales por correo |
 | **Exportación ACH** | Archivo .txt delimitado por entidad bancaria |
 | **Auditoría** | Registro inmutable de cambios en el sistema |
 
@@ -56,6 +58,7 @@ Sistema web integral para la gestión de **control de asistencia** y **liquidaci
 | django-cors-headers | — | CORS para frontend |
 | django-filter | — | Filtros avanzados para API |
 | SQLite | — | Base de datos (desarrollo) |
+| ReportLab | 4.x | Generación de PDF de desprendibles de nómina |
 
 ### Frontend
 
@@ -67,6 +70,7 @@ Sistema web integral para la gestión de **control de asistencia** y **liquidaci
 | Chart.js | 4.5.1 | Gráficas interactivas |
 | Axios | 1.16.1 | Cliente HTTP |
 | jsPDF | 4.2.1 | Generación de PDF |
+| face-api.js | — | Reconocimiento facial biométrico |
 | Work Sans | — | Tipografía principal UI |
 | Young Serif | — | Tipografía para títulos |
 
@@ -108,8 +112,13 @@ El frontend (Vue 3 SPA) se comunica con el backend (Django REST Framework) a tra
 │   │   ├── 📂 management/             # Comandos personalizados
 │   │   ├── 📂 migrations/             # Migraciones BD
 │   │   │   ├── 0001_initial.py
-│   │   │   ├── 0002_empleado_id_sede.py
-│   │   │   └── 0003_remove_empleado_id_sede.py
+│   │   │   ├── ...
+│   │   │   ├── 0008_liquidacionnomina_desprendible.py
+│   │   │   ├── 0009_liquidacionnomina_salario_base_original_and_more.py
+│   │   │   └── 0010_alter_asistencia_fecha_hora.py
+│   │   ├── 📂 management/commands/
+│   │   │   ├── seed_asistencias.py     # Seed de datos de asistencia
+│   │   │   └── seed_usuarios.py        # Seed de usuarios
 │   │   ├── 📂 tests/                  # Tests unitarios
 │   │   │   └── test_api.py
 │   │   ├── admin.py                   # Panel admin Django
@@ -144,7 +153,8 @@ El frontend (Vue 3 SPA) se comunica con el backend (Django REST Framework) a tra
 │   │   │   │   ├── ListEmpleados.vue
 │   │   │   │   └── PortalPersonal.vue
 │   │   │   ├── 📂 nomina/
-│   │   │   │   └── LiquidacionNomina.vue
+│   │   │   │   ├── DesprendiblesPdf.vue    # Desprendibles PDF con envío masivo
+│   │   │   │   └── LiquidacionNomina.vue   # Liquidación con ajuste SMMLV
 │   │   │   └── 📂 reportes/
 │   │   │       ├── DashboardReportes.vue
 │   │   │       └── ReportesFiltrables.vue
@@ -209,16 +219,56 @@ El frontend (Vue 3 SPA) se comunica con el backend (Django REST Framework) a tra
 | `PUT` | `/api/empleados/{id}/` | Sí | Actualizar empleado |
 | `PATCH` | `/api/empleados/{id}/` | Sí | Actualización parcial |
 | `DELETE` | `/api/empleados/{id}/` | Sí | Eliminar empleado |
+| `POST` | `/api/empleados/{id}/reenviar-credenciales/` | ADMIN_RRHH, ADMIN_SISTEMA | Reenviar credenciales por correo |
+| `GET` | `/api/empleados/me/` | Sí | Perfil del empleado autenticado |
+| `POST` | `/api/asistencia/registrar/` | Sí | Registrar asistencia con biometría + GPS |
+| `GET` | `/api/asistencia/historial/` | Sí | Historial de asistencias |
+| `GET` | `/api/asistencia/pendientes/` | ADMIN_RRHH | Asistencias pendientes de aprobación |
+| `POST` | `/api/asistencia/aprobar/` | ADMIN_RRHH | Aprobar/rechazar asistencia manual |
+| `POST` | `/api/nomina/calcular/` | CONTADOR, ADMIN_RRHH | Calcular y guardar liquidación de nómina |
+| `GET` | `/api/nomina/liquidaciones/` | CONTADOR, ADMIN_RRHH | Listar liquidaciones existentes |
+| `POST` | `/api/desprendibles/generar/` | CONTADOR, ADMIN_RRHH | Generar PDF de desprendible |
+| `GET` | `/api/desprendibles/enviar/` | CONTADOR, ADMIN_RRHH | Enviar desprendible por correo |
+| `POST` | `/api/desprendibles/enviar-masivo/` | CONTADOR, ADMIN_RRHH | Envío masivo de desprendibles a todo el período |
+| `GET` | `/api/reportes/dashboard/` | GERENTE, ADMIN_RRHH, CONTADOR | KPIs reales desde la BD |
+| `GET` | `/api/configuracion/parametros/` | ADMIN_SISTEMA | Parámetros del sistema (SMMLV) |
+| `GET` | `/api/auditoria/logs/` | ADMIN_SISTEMA | Logs de auditoría |
 
-### Endpoints futuros (Sprints 2-4)
+### Dashboard API — `GET /api/reportes/dashboard/`
 
-| Método | Endpoint | Sprint | Descripción |
-|--------|----------|--------|-------------|
-| `POST` | `/api/asistencia/registrar/` | Sprint 2 | Registrar asistencia con biometría + GPS |
-| `GET` | `/api/asistencia/historial/` | Sprint 2 | Historial de asistencias por empleado |
-| `POST` | `/api/nomina/generar/` | Sprint 3 | Generar liquidación de nómina |
-| `GET` | `/api/nomina/{id}/` | Sprint 3 | Detalle de liquidación |
-| `GET` | `/api/reportes/dashboard/` | Sprint 4 | Métricas para dashboard |
+Endpoint que retorna KPIs calculados directamente desde la base de datos:
+
+```json
+{
+  "kpis": {
+    "total_empleados": 7,
+    "total_empleados_activos": 7,
+    "tasa_asistencia": 74.5,
+    "total_horas_extras": 45.5,
+    "costo_nomina": 12345678.90
+  },
+  "monthlyData": [
+    {
+      "mes": "2025-11",
+      "dias_trabajados": 56,
+      "ausencias": 4,
+      "horas_extras": 12.5,
+      "costo_total": 5000000.00
+    }
+  ],
+  "topOvertimeEmployees": [
+    {
+      "empleado_id": 27,
+      "nombre": "Patrick Ortiz",
+      "cargo": "Scrum Master",
+      "total_he": 18.0
+    }
+  ],
+  "departmentData": [
+    { "cargo": "Analista", "cantidad": 2 }
+  ]
+}
+```
 
 ### Filtros disponibles en `GET /api/empleados/`
 
@@ -321,6 +371,32 @@ El frontend se ejecuta en `http://localhost:5173` y el backend en `http://localh
 
 ---
 
+## 🧪 Datos de Prueba — Seed de Asistencias
+
+Para generar datos realistas de asistencia para pruebas del dashboard y nómina:
+
+```bash
+# Generar últimos 3 meses completos (default)
+python manage.py seed_asistencias --force
+
+# Generar últimos 6 meses
+python manage.py seed_asistencias --force --meses=6
+
+# Generar un mes específico
+python manage.py seed_asistencias --force --mes=4 --anio=2026
+```
+
+El comando crea pares **ENTRADA+SALIDA** por día para empleados con salario > 0, con:
+- Horarios según perfil del cargo (Scrum Master 7-8AM, Analista 7:30-8:30AM, etc.)
+- ~8% de trabajo en fines de semana y festivos
+- ~5% de ausencias aleatorias
+- 20-40% de días con horas extra
+- ~3% de registros manuales pendientes de aprobación
+- Geolocalización variada cerca de la oficina (Neiva)
+- Soporte multi-mes con manejo de cambio de año
+
+---
+
 ## 💻 Uso y Desarrollo
 
 ### Desarrollo
@@ -366,9 +442,9 @@ cd frontend && npm run preview      # Vista previa del build
 | Sprint | Objetivo | Estado |
 |--------|----------|--------|
 | **Sprint 1** | Gestión de empleados (CRUD, foto facial, API REST) | ✅ Completado |
-| **Sprint 2** | Control de asistencia, portal personal, autenticación | 🔄 En progreso |
-| **Sprint 3** | Liquidación de nómina, desprendibles PDF | 📅 Planeado |
-| **Sprint 4** | Dashboard, reportes, exportación ACH/Excel | 📅 Planeado |
+| **Sprint 2** | Control de asistencia, portal personal, autenticación, credenciales | ✅ Completado |
+| **Sprint 3** | Liquidación de nómina, desprendibles PDF (individual y masivo), ajuste SMMLV | ✅ Completado |
+| **Sprint 4** | Dashboard con datos reales, seed de datos, corrección TIME_ZONE, migración fecha_hora | 🔄 En progreso |
 
 ---
 
@@ -386,6 +462,7 @@ Este proyecto sigue el formato de versionado semántico **`MAJOR.MINOR.PATCH`**:
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
-| `1.3.0` | Mayo 2026 | Corrección del botón "Editar Información" en Portal Personal (no funcionaba por typo y return values faltantes). Optimización de rendimiento en captura facial: migración de SSD Mobilenet v1 a TinyFaceDetector (~5x más rápido). Precarga automática de modelos IA al montar componentes. Mejora en obtención de GPS con fallback sin alta precisión. |
+| `1.4.0` | Mayo 2026 | Dashboard conectado a datos reales de la BD con endpoint `/api/reportes/dashboard/`. Seed de asistencias (`python manage.py seed_asistencias`) con perfiles por cargo y soporte multi-mes. Envío masivo de desprendibles PDF. Reenvío manual de credenciales. Ajuste automático SMMLV en nómina. Corrección TIME_ZONE a America/Bogota. Migración de `auto_now_add` a `default=timezone.now` en Asistencia.fecha_hora. Documentación completa en README de endpoints API. |
+| `1.3.0` | Mayo 2026 | Corrección del botón "Editar Información" en Portal Personal. Optimización de rendimiento en captura facial: migración a TinyFaceDetector (~5x más rápido). Precarga automática de modelos IA. Mejora en obtención de GPS con fallback sin alta precisión. |
 | `1.1.0` | Mayo 2026 | Rediseño completo del frontend. Nuevo sistema de diseño corporativo con paleta de colores azul/verde, tipografía Work Sans + Young Serif, micro-interacciones, animaciones CSS. Integración de Chart.js para dashboard. Sidebar con navegación por roles. |
 | `1.0.0` | Mayo 2026 | Lanzamiento inicial. Backend Django REST con modelo Empleado, API CRUD con filtros. Frontend Vue 3 con autenticación, gestión de empleados, captura biométrica facial, registro de asistencia, liquidación de nómina simulada, dashboard con gráficas, reportes filtrables, configuración del sistema. |

@@ -428,6 +428,16 @@ h4 { font-size: 1.125rem; }
   color: #fff;
 }
 
+.btn-outline-info {
+  background: transparent;
+  border-color: var(--color-primary-500);
+  color: var(--color-primary-700);
+}
+.btn-outline-info:hover:not(:disabled) {
+  background: var(--color-primary-500);
+  color: #fff;
+}
+
 /* Ghost */
 .btn-ghost {
   background: transparent;

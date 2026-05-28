@@ -4,6 +4,10 @@ from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.conf import settings
 from .models import Empleado
+from .utils import registrar_auditoria
+import logging
+
+logger = logging.getLogger(__name__)
 
 class EmpleadoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -75,7 +79,14 @@ El Equipo de Recursos Humanos
                 fail_silently=False,
             )
         except Exception as e:
-            print(f"Error al enviar correo de credenciales: {e}")
+            error_msg = str(e)
+            logger.error(f"Error SMTP al enviar credenciales a {email}: {error_msg}")
+            registrar_auditoria(
+                user, 'ERROR_ENVIO_CREDENCIALES', 'empleados',
+                None, None,
+                {'email': email, 'error': error_msg, 'accion': 'CREACION_EMPLEADO'},
+                None
+            )
             
         validated_data['user'] = user
         return super().create(validated_data)

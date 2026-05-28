@@ -111,11 +111,23 @@ def calcular_horas_extras(empleado, periodo_inicio, periodo_fin):
 def calcular_nomina_empleado(empleado, periodo_inicio, periodo_fin, user=None, request=None):
     """
     Calcula la liquidación de nómina completa para un empleado en un período.
+    Aplica ajuste por SMMLV si el salario base del empleado es inferior al mínimo legal.
 
     Returns:
         dict con todos los valores calculados
     """
-    salario_base = Decimal(str(empleado.salario_base))
+    salario_base_original = Decimal(str(empleado.salario_base))
+
+    # Leer SMMLV desde parámetros del sistema y ajustar si es necesario
+    try:
+        smmlv_valor = Decimal(get_parametro('SMMLV', '1300606.00'))
+    except Exception:
+        smmlv_valor = Decimal('1300606.00')
+
+    salario_base = salario_base_original
+    if salario_base < smmlv_valor:
+        salario_base = smmlv_valor
+
     valor_hora = calcular_valor_hora(salario_base)
 
     # Obtener horas del período
@@ -170,6 +182,8 @@ def calcular_nomina_empleado(empleado, periodo_inicio, periodo_fin, user=None, r
 
     return {
         'salario_base': salario_base,
+        'salario_base_original': salario_base_original,
+        'smmlv_aplicado': smmlv_valor,
         'valor_hora': valor_hora,
         'horas_trabajadas': horas['horas_trabajadas'],
         'horas_extra_diurnas': horas['horas_extra_diurnas'],
@@ -198,6 +212,8 @@ def guardar_liquidacion(empleado, calculo, periodo_inicio, periodo_fin, user=Non
         periodo_fin=periodo_fin,
         defaults={
             'salario_base': calculo['salario_base'],
+            'salario_base_original': calculo.get('salario_base_original'),
+            'smmlv_aplicado': calculo.get('smmlv_aplicado'),
             'valor_hora': calculo['valor_hora'],
             'horas_trabajadas': calculo['horas_trabajadas'],
             'horas_extra_diurnas': calculo['horas_extra_diurnas'],

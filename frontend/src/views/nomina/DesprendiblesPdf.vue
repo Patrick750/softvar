@@ -62,8 +62,7 @@
     </div>
 
     <!-- Tabla de Liquidaciones -->
-    <div class="card" v-if="liquidaciones.length > 0">
-      <div class="card-header">
+    <div class="card" v-if="liquidaciones.length > 0">        <div class="card-header">
         <div class="card-header-left">
           <span class="card-icon card-icon-blue">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -72,7 +71,22 @@
           </span>
           <h3>Liquidaciones del Período</h3>
         </div>
-        <span class="badge badge-info">{{ liquidaciones.length }} empleados</span>
+        <div class="card-header-right">
+          <span class="badge badge-info me-2">{{ liquidaciones.length }} empleados</span>
+          <button
+            class="btn btn-sm btn-primary"
+            @click="enviarTodos"
+            :disabled="enviandoTodos || liquidaciones.length === 0"
+            title="Enviar todos los desprendibles de este período"
+          >
+            <span v-if="enviandoTodos" class="spinner spinner-sm"></span>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            Enviar Todos
+          </button>
+        </div>
       </div>
       <div class="card-body p-0">
         <div class="table-wrapper">
@@ -139,6 +153,57 @@
       </div>
     </div>
 
+    <!-- Modal de resultado de envío masivo -->
+    <Teleport to="body">
+      <div v-if="resumenVisible" class="modal-overlay" @click.self="resumenVisible = false">
+        <div class="modal-card">
+          <div class="modal-header">
+            <div class="modal-header-content">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-700)" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              <h3>Resultado de Envío Masivo</h3>
+            </div>
+            <button class="modal-close" @click="resumenVisible = false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="resumen-grid">
+              <div class="resumen-card resumen-total">
+                <span class="resumen-number">{{ resumenDatos.total }}</span>
+                <span class="resumen-label">Total empleados</span>
+              </div>
+              <div class="resumen-card resumen-success">
+                <span class="resumen-number">{{ resumenDatos.enviados }}</span>
+                <span class="resumen-label">Enviados</span>
+              </div>
+              <div class="resumen-card resumen-error">
+                <span class="resumen-number">{{ resumenDatos.fallidos }}</span>
+                <span class="resumen-label">Fallidos</span>
+              </div>
+            </div>
+
+            <div v-if="resumenDatos.fallidos > 0" class="detalle-fallidos">
+              <h4>Detalle de errores</h4>
+              <div class="fallido-item" v-for="r in resumenDatos.resultadosFallidos" :key="r.empleado_id">
+                <span class="fallido-nombre">{{ r.empleado_nombre }}</span>
+                <span class="fallido-error">{{ r.error }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" @click="resumenVisible = false">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Empty state -->
     <div v-else-if="!cargando && busquedaRealizada" class="empty-state-card">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-border)" stroke-width="1">
@@ -178,6 +243,10 @@ export default {
     const busquedaRealizada = ref(false)
     const generandoId = ref(null)
     const enviandoId = ref(null)
+
+    const enviandoTodos = ref(false)
+    const resumenVisible = ref(false)
+    const resumenDatos = ref({ total: 0, enviados: 0, fallidos: 0, resultadosFallidos: [] })
 
     // Estado de desprendibles por liquidación (key: liquidacion_id, value: { estado, desprendible_id, pdf_base64 })
     const desprendiblesMap = ref({})
@@ -320,10 +389,59 @@ export default {
 
     const formatoMoneda = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(parseFloat(v || 0))
 
+    const enviarTodos = async () => {
+      const periodo = getPeriodoStr()
+      if (!confirm(`¿Enviar desprendibles de nómina a todos los empleados del período ${periodo}?`)) return
+
+      enviandoTodos.value = true
+      try {
+        const { data } = await axios.post('/api/desprendibles/enviar-masivo/', {
+          periodo: periodo
+        })
+
+        // Actualizar el estado de todos los desprendibles en el mapa
+        const nuevosEstados = { ...desprendiblesMap.value }
+        data.resultados.forEach(r => {
+          // Encontrar la liquidación por empleado_id
+          const liq = liquidaciones.value.find(l => l.empleado_id === r.empleado_id)
+          if (liq) {
+            // Obtener el desprendible_id desde sessionStorage o dejarlo pendiente
+            const existingId = sessionStorage.getItem(`desprendible_id_${liq.id}`)
+            nuevosEstados[liq.id] = {
+              estado: r.estado === 'ENVIADO' ? 'ENVIADO' : 'FALLIDO',
+              desprendible_id: existingId || null,
+            }
+          }
+        })
+        desprendiblesMap.value = nuevosEstados
+
+        // Mostrar resumen
+        resumenDatos.value = {
+          total: data.total,
+          enviados: data.enviados,
+          fallidos: data.fallidos,
+          resultadosFallidos: data.resultados.filter(r => r.estado === 'FALLIDO'),
+        }
+        resumenVisible.value = true
+
+        addToast(
+          'Éxito',
+          `Envío masivo completado: ${data.enviados} enviados, ${data.fallidos} fallidos.`,
+          data.fallidos > 0 ? 'warning' : 'success'
+        )
+      } catch (err) {
+        const msg = err.response?.data?.error || 'Error en envío masivo'
+        addToast('Error', msg, 'error')
+      } finally {
+        enviandoTodos.value = false
+      }
+    }
+
     return {
       meses, filtro, liquidaciones, cargando, busquedaRealizada,
       generandoId, enviandoId, desprendiblesMap,
-      cargarLiquidaciones, generarDesprendible, enviarDesprendible, descargarPdf,
+      enviandoTodos, resumenVisible, resumenDatos,
+      cargarLiquidaciones, generarDesprendible, enviarDesprendible, descargarPdf, enviarTodos,
       getEstadoTexto, getEstadoBadge, tieneDesprendibleGenerado, tienePdfDescargable,
       formatoMoneda
     }
@@ -358,6 +476,12 @@ export default {
 }
 .card-header-left { display: flex; align-items: center; gap: 0.75rem; }
 .card-header-left h3 { font-family: 'Young Serif', Georgia, serif; font-size: 1rem; margin: 0; color: var(--color-neutral-text-primary); }
+
+.card-header-right {
+  display: flex; align-items: center; gap: 0.75rem;
+}
+
+.me-2 { margin-right: 0.5rem; }
 
 .card-icon {
   width: 32px; height: 32px; border-radius: 8px;
@@ -482,6 +606,97 @@ export default {
 .badge-error { background: var(--color-error-bg); color: var(--color-error-accent); }
 .badge-neutral { background: var(--color-bg-subtle); color: var(--color-neutral-text-secondary); border: 1px solid var(--color-neutral-divider); }
 .badge-info { background: var(--color-info-bg); color: var(--color-info-accent); }
+
+/* Modal de resumen */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+.modal-card {
+  background: white; border-radius: 16px;
+  width: 90%; max-width: 520px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  overflow: hidden;
+  animation: slideUp 0.25s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+.modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-neutral-divider);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-header-content {
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.modal-header-content h3 {
+  font-family: 'Young Serif', Georgia, serif;
+  font-size: 1.1rem; margin: 0; color: var(--color-neutral-text-primary);
+}
+.modal-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--color-neutral-text-secondary);
+  padding: 4px; border-radius: 6px;
+  transition: all 0.15s;
+}
+.modal-close:hover { background: var(--color-neutral-bg-page); color: var(--color-neutral-text-primary); }
+
+.modal-body { padding: 1.5rem; }
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-neutral-divider);
+  display: flex; justify-content: flex-end;
+}
+
+.resumen-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.resumen-card {
+  text-align: center;
+  padding: 1.25rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-neutral-divider);
+}
+.resumen-total { background: var(--color-info-bg); border-color: var(--color-primary-200); }
+.resumen-success { background: var(--color-success-bg); border-color: var(--color-secondary-200); }
+.resumen-error { background: var(--color-error-bg); border-color: transparent; }
+.resumen-number {
+  display: block;
+  font-size: 2rem; font-weight: 800;
+  color: var(--color-neutral-text-primary);
+  line-height: 1.2;
+}
+.resumen-label {
+  font-size: 0.75rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--color-neutral-text-secondary);
+}
+.resumen-success .resumen-number { color: var(--color-success-accent); }
+.resumen-error .resumen-number { color: var(--color-error-accent); }
+
+.detalle-fallidos { margin-top: 1rem; }
+.detalle-fallidos h4 {
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--color-error-accent);
+  margin: 0 0 0.5rem;
+}
+.fallido-item {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-error-bg);
+  border-radius: 8px;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+}
+.fallido-nombre { font-weight: 600; color: var(--color-neutral-text-primary); }
+.fallido-error { color: var(--color-error-accent); font-size: 0.75rem; max-width: 50%; text-align: right; word-break: break-word; }
 
 /* Empty state */
 .empty-state-card {

@@ -562,7 +562,8 @@ def auditoria_logs_view(request):
 
 from django.contrib.auth import update_session_auth_hash
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import calendar
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
@@ -573,8 +574,14 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from django.conf import settings as django_settings
 from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
+from django.utils.crypto import get_random_string
 from .nomina_engine import calcular_nomina_empleado, guardar_liquidacion
 from .models import Empleado, Asistencia, Auditoria, ParametroSistema, LiquidacionNomina, Desprendible
+from django.db.models import Count, Sum, Q, Avg
+from django.db.models.functions import TruncMonth, TruncDay, ExtractHour
+import logging
+
+logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -608,6 +615,96 @@ def cambiar_contrasena_view(request):
     registrar_auditoria(user, 'CAMBIO_CONTRASENA', 'auth_user', user.id, None, None, request)
     
     return Response({'message': 'Contraseña cambiada con éxito.'})
+
+
+# ============================================
+# CREDENCIALES — Reenvío manual
+# ============================================
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def reenviar_credenciales_view(request, empleado_id):
+    """
+    Reenvía las credenciales de acceso al empleado por correo electrónico.
+    Genera una nueva contraseña temporal y la envía.
+    Roles permitidos: ADMIN_RRHH, ADMIN_SISTEMA
+    """
+    role = get_user_role(request.user)
+    if role not in ['ADMIN_RRHH', 'ADMIN_SISTEMA']:
+        return Response({'error': 'No tienes permisos para reenviar credenciales'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        empleado = Empleado.objects.get(id=empleado_id)
+    except Empleado.DoesNotExist:
+        return Response({'error': 'Empleado no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    if not empleado.user:
+        return Response({'error': 'El empleado no tiene un usuario asociado en el sistema'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not empleado.email:
+        return Response({'error': 'El empleado no tiene un correo electrónico registrado'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Generar nueva contraseña temporal
+    temp_password = get_random_string(length=10)
+
+    # Actualizar contraseña del usuario
+    empleado.user.set_password(temp_password)
+    empleado.user.save()
+
+    subject = 'SoftVar - Reenvío de Credenciales de Acceso'
+    message = f"""Hola {empleado.nombres} {empleado.apellidos},
+
+Se ha realizado un reenvío de tus credenciales de acceso al Sistema de Control de Asistencia y Nómina SoftVar.
+
+Tus nuevas credenciales temporales son:
+
+Usuario (Cédula): {empleado.cedula}
+Contraseña temporal: {temp_password}
+
+Por favor, inicia sesión en http://localhost:5173/login y cambia tu contraseña en tu Portal Personal.
+
+Atentamente,
+El Equipo de Recursos Humanos
+SoftVar S.A.S."""
+
+    try:
+        send_mail(
+            subject,
+            message,
+            django_settings.DEFAULT_FROM_EMAIL,
+            [empleado.email],
+            fail_silently=False,
+        )
+
+        # Auditoría: éxito
+        registrar_auditoria(
+            request.user, 'REENVIO_CREDENCIALES_EXITOSO', 'empleados',
+            empleado.id, None,
+            {'email': empleado.email, 'empleado_id': empleado.id},
+            request
+        )
+
+        return Response({
+            'message': 'Credenciales reenviadas con éxito al correo del empleado.',
+            'email': empleado.email,
+        })
+
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Error SMTP al reenviar credenciales a {empleado.email}: {error_msg}")
+
+        # Auditoría: fallo
+        registrar_auditoria(
+            request.user, 'ERROR_REENVIO_CREDENCIALES', 'empleados',
+            empleado.id, None,
+            {'email': empleado.email, 'error': error_msg, 'empleado_id': empleado.id},
+            request
+        )
+
+        return Response({
+            'error': f'Error al enviar el correo: {error_msg}',
+            'email': empleado.email,
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # ============================================
@@ -668,6 +765,8 @@ def calcular_nomina_view(request):
                 'cedula': emp.cedula,
                 'cargo': emp.cargo,
                 'salario_base': str(calculo['salario_base']),
+                'salario_base_original': str(calculo.get('salario_base_original', calculo['salario_base'])),
+                'smmlv_aplicado': str(calculo.get('smmlv_aplicado', '')),
                 'valor_hora': str(calculo['valor_hora']),
                 'horas_trabajadas': str(calculo['horas_trabajadas']),
                 'horas_extra_diurnas': str(calculo['horas_extra_diurnas']),
@@ -757,9 +856,49 @@ def listar_liquidaciones_view(request):
 # DESPRENDIBLES PDF — API Views
 # ============================================
 
+def _crear_logo_vectorial():
+    """
+    Crea un logo vectorial de SoftVar usando ReportLab primitives.
+    Retorna un Table con el logo y nombre de la empresa.
+    """
+    from reportlab.graphics.shapes import Drawing, Circle, Rect, String, Line, Polygon
+    from reportlab.graphics import renderPDF
+    from reportlab.graphics.charts.textlabels import Label
+
+    # Crear un drawing con el logo
+    d = Drawing(60, 60)
+
+    # Círculo base azul oscuro
+    d.add(Circle(30, 30, 28, fillColor=colors.HexColor('#042C53'), strokeColor=colors.HexColor('#185FA5'), strokeWidth=1.5))
+
+    # Forma de 'S' estilizada (hexágono abstracto)
+    p = Polygon(
+        [30, 8, 48, 18, 48, 38, 30, 48, 12, 38, 12, 18],
+        fillColor=colors.HexColor('#378ADD'), strokeColor=None
+    )
+    d.add(p)
+
+    # Línea diagonal decorativa
+    d.add(Line(16, 22, 44, 38, strokeColor=colors.white, strokeWidth=2))
+    d.add(Line(20, 18, 40, 32, strokeColor=colors.white, strokeWidth=1))
+
+    # Texto 'S' en el centro
+    d.add(String(30, 26, "S", fontSize=16, fillColor=colors.white,
+                 fontName='Helvetica-Bold', textAnchor='middle'))
+
+    # Círculo pequeño decorativo
+    d.add(Circle(18, 42, 4, fillColor=colors.HexColor('#639922'), strokeColor=None))
+
+    logo_img = BytesIO()
+    renderPDF.drawToFile(d, logo_img, '')
+    logo_img.seek(0)
+    return Image(logo_img, width=50, height=50)
+
+
 def generar_pdf_desprendible(liquidacion):
     """
     Genera un PDF de desprendible de nómina usando ReportLab.
+    Incluye logo vectorial de la empresa y datos del empleador.
     Retorna el PDF como bytes.
     """
     buffer = BytesIO()
@@ -777,13 +916,13 @@ def generar_pdf_desprendible(liquidacion):
     # Estilos personalizados
     title_style = ParagraphStyle(
         'CustomTitle', parent=styles['Heading1'],
-        fontSize=18, textColor=colors.HexColor('#042C53'),
-        spaceAfter=4, alignment=TA_CENTER, fontName='Helvetica-Bold'
+        fontSize=16, textColor=colors.HexColor('#042C53'),
+        spaceAfter=2, alignment=TA_LEFT, fontName='Helvetica-Bold'
     )
     subtitle_style = ParagraphStyle(
         'Subtitle', parent=styles['Normal'],
-        fontSize=9, textColor=colors.HexColor('#5F5E5A'),
-        alignment=TA_CENTER, spaceAfter=12
+        fontSize=7.5, textColor=colors.HexColor('#5F5E5A'),
+        alignment=TA_LEFT, spaceAfter=2
     )
     section_style = ParagraphStyle(
         'Section', parent=styles['Heading2'],
@@ -797,31 +936,78 @@ def generar_pdf_desprendible(liquidacion):
     )
     value_style = ParagraphStyle(
         'Value', parent=styles['Normal'],
-        fontSize=10, textColor=colors.HexColor('#2C2C2A'),
-        fontName='Helvetica-Bold', spaceAfter=6
+        fontSize=9.5, textColor=colors.HexColor('#2C2C2A'),
+        fontName='Helvetica-Bold', spaceAfter=5
+    )
+    info_style = ParagraphStyle(
+        'Info', parent=styles['Normal'],
+        fontSize=7.5, textColor=colors.HexColor('#5F5E5A'),
+        fontName='Helvetica', leading=10
     )
     total_style = ParagraphStyle(
         'Total', parent=styles['Normal'],
         fontSize=12, textColor=colors.HexColor('#3B6D11'),
         fontName='Helvetica-Bold', alignment=TA_RIGHT
     )
+    doc_title_style = ParagraphStyle(
+        'DocTitle', parent=styles['Normal'],
+        fontSize=10, textColor=colors.HexColor('#185FA5'),
+        fontName='Helvetica-Bold', alignment=TA_LEFT
+    )
 
     empleado = liquidacion.empleado
     elements = []
 
-    # Encabezado
-    elements.append(Paragraph("SOFTVAR S.A.S.", title_style))
-    elements.append(Paragraph("Sistema de Control de Asistencia y Nómina", subtitle_style))
-    elements.append(Paragraph("Desprendible de Pago", subtitle_style))
-    elements.append(Spacer(1, 10))
+    # ===== ENCABEZADO CON LOGO Y DATOS DEL EMPLEADOR =====
+    try:
+        logo = _crear_logo_vectorial()
+    except Exception:
+        logo = None
+
+    # Fila superior: Logo + Nombre empresa + NIT
+    header_data = []
+
+    # Columna izquierda: logo
+    left_col = []
+    if logo:
+        left_col.append(logo)
+
+    # Columna derecha: nombre empresa y datos
+    empresa_lines = [
+        Paragraph(f"<b>{django_settings.EMPRESA_NOMBRE}</b>", title_style),
+        Paragraph(f"NIT {django_settings.EMPRESA_NIT}", subtitle_style),
+        Paragraph(f"{django_settings.EMPRESA_DIRECCION}", info_style),
+        Paragraph(f"{django_settings.EMPRESA_CIUDAD}", info_style),
+        Paragraph(f"Tel: {django_settings.EMPRESA_TELEFONO} | {django_settings.EMPRESA_EMAIL}", info_style),
+    ]
+    right_col = empresa_lines
+
+    # Usar tabla para alinear logo a la izquierda y datos a la derecha
+    header_table = Table(
+        [[left_col[0] if logo else Paragraph("", info_style), right_col]],
+        colWidths=[60, 400]
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (0, 0), 0),
+        ('RIGHTPADDING', (1, 0), (1, 0), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    elements.append(header_table)
+
+    elements.append(Spacer(1, 2))
+
+    # Documento: Desprendible de Pago
+    elements.append(Paragraph("DESPRENDIBLE DE PAGO", doc_title_style))
 
     # Línea divisora
     elements.append(Table([['']], colWidths=[460], style=TableStyle([
-        ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#185FA5')),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.5, colors.HexColor('#185FA5')),
     ])))
     elements.append(Spacer(1, 8))
 
-    # Información del empleado
+    # ===== INFORMACIÓN DEL EMPLEADO =====
     elements.append(Paragraph("DATOS DEL EMPLEADO", section_style))
     emp_data = [
         [Paragraph("Nombre:", label_style), Paragraph(f"{empleado.nombres} {empleado.apellidos}", value_style),
@@ -840,7 +1026,7 @@ def generar_pdf_desprendible(liquidacion):
     elements.append(emp_table)
     elements.append(Spacer(1, 10))
 
-    # Tabla de Devengados
+    # ===== TABLA DE DEVENGADOS =====
     elements.append(Paragraph("DEVENGADOS", section_style))
     dev_data = [
         [Paragraph("Concepto", label_style), Paragraph("Horas", label_style), Paragraph("Valor", label_style)],
@@ -864,6 +1050,12 @@ def generar_pdf_desprendible(liquidacion):
             Paragraph(str(liquidacion.horas_dominicales)),
             Paragraph(f"${float(liquidacion.recargo_dominical):,.2f}"),
         ])
+    if liquidacion.smmlv_aplicado and liquidacion.salario_base_original and liquidacion.salario_base_original < liquidacion.salario_base:
+        dev_data.insert(1, [
+            Paragraph("<i>Ajuste SMMLV</i>"),
+            Paragraph(""),
+            Paragraph(f"<i>${float(liquidacion.salario_base_original):,.2f} → ${float(liquidacion.salario_base):,.2f}</i>"),
+        ])
     dev_data.append([
         Paragraph("<b>TOTAL DEVENGADO</b>"),
         Paragraph(""),
@@ -877,8 +1069,8 @@ def generar_pdf_desprendible(liquidacion):
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#EAF3DE')),
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -886,7 +1078,7 @@ def generar_pdf_desprendible(liquidacion):
     elements.append(dev_table)
     elements.append(Spacer(1, 10))
 
-    # Tabla de Deducciones
+    # ===== TABLA DE DEDUCCIONES =====
     elements.append(Paragraph("DEDUCCIONES", section_style))
     ded_data = [
         [Paragraph("Concepto", label_style), Paragraph("Porcentaje", label_style), Paragraph("Valor", label_style)],
@@ -906,8 +1098,8 @@ def generar_pdf_desprendible(liquidacion):
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FCEBEB')),
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -915,20 +1107,33 @@ def generar_pdf_desprendible(liquidacion):
     elements.append(ded_table)
     elements.append(Spacer(1, 12))
 
-    # Neto a pagar
+    # ===== NETO A PAGAR =====
     elements.append(Paragraph(
         f"NETO A PAGAR: ${float(liquidacion.neto_pagar):,.2f}", total_style
     ))
 
-    # Línea final
+    # ===== LÍNEA FINAL Y PIE DE PÁGINA =====
     elements.append(Spacer(1, 15))
     elements.append(Table([['']], colWidths=[460], style=TableStyle([
         ('LINEABOVE', (0, 0), (-1, 0), 1, colors.HexColor('#185FA5')),
     ])))
     elements.append(Spacer(1, 8))
+
+    # Pie con datos de la empresa
+    footer_text = (
+        f"{django_settings.EMPRESA_NOMBRE} · NIT {django_settings.EMPRESA_NIT} · "
+        f"{django_settings.EMPRESA_DIRECCION}, {django_settings.EMPRESA_CIUDAD} · "
+        f"{django_settings.EMPRESA_WEB}"
+    )
     elements.append(Paragraph(
-        "Este es un documento informativo generado por SoftVar S.A.S.",
-        ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#B4B2A9'), alignment=TA_CENTER)
+        footer_text,
+        ParagraphStyle('Footer', parent=styles['Normal'], fontSize=6.5,
+                       textColor=colors.HexColor('#B4B2A9'), alignment=TA_CENTER)
+    ))
+    elements.append(Paragraph(
+        "Este es un documento informativo. Generado electrónicamente por SoftVar S.A.S.",
+        ParagraphStyle('Footer2', parent=styles['Normal'], fontSize=6.5,
+                       textColor=colors.HexColor('#B4B2A9'), alignment=TA_CENTER)
     ))
 
     doc.build(elements)
@@ -1086,3 +1291,297 @@ SoftVar S.A.S.""",
         )
 
         return Response({'error': f'Error enviando email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def enviar_desprendibles_masivo_view(request):
+    """
+    Envía todos los desprendibles de un período de forma masiva.
+    Roles permitidos: CONTADOR, ADMIN_RRHH
+    Retorna un resumen con: total, enviados, fallidos.
+    """
+    role = get_user_role(request.user)
+    if role not in ['CONTADOR', 'ADMIN_RRHH']:
+        return Response({'error': 'No tienes permisos para enviar desprendibles'}, status=status.HTTP_403_FORBIDDEN)
+
+    periodo = request.data.get('periodo')  # YYYY-MM
+    if not periodo:
+        return Response({'error': 'periodo es requerido (YYYY-MM)'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        anio, mes = periodo.split('-')
+        qs = LiquidacionNomina.objects.filter(
+            periodo_inicio__year=int(anio),
+            periodo_inicio__month=int(mes),
+        ).select_related('empleado')
+    except (ValueError, IndexError):
+        return Response({'error': 'Formato de período inválido. Use YYYY-MM'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not qs.exists():
+        return Response({'error': 'No hay liquidaciones para este período'}, status=status.HTTP_400_BAD_REQUEST)
+
+    resultados = []
+    enviados = 0
+    fallidos = 0
+    total = qs.count()
+
+    for liquidacion in qs:
+        empleado = liquidacion.empleado
+        empleado_nombre = f"{empleado.nombres} {empleado.apellidos}"
+
+        if not empleado.email:
+            fallidos += 1
+            resultados.append({
+                'empleado_id': empleado.id,
+                'empleado_nombre': empleado_nombre,
+                'estado': 'FALLIDO',
+                'error': 'Empleado sin correo electrónico registrado',
+            })
+            continue
+
+        # Buscar o generar el desprendible
+        desprendible, created = Desprendible.objects.get_or_create(
+            liquidacion=liquidacion,
+            empleado=empleado,
+            periodo=periodo,
+        )
+
+        # Generar PDF si no existe
+        if not desprendible.archivo_pdf:
+            try:
+                pdf_bytes = generar_pdf_desprendible(liquidacion)
+                import base64
+                desprendible.archivo_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+                desprendible.save()
+            except Exception as e:
+                fallidos += 1
+                resultados.append({
+                    'empleado_id': empleado.id,
+                    'empleado_nombre': empleado_nombre,
+                    'estado': 'FALLIDO',
+                    'error': f'Error generando PDF: {str(e)}',
+                })
+                continue
+        else:
+            import base64
+            pdf_bytes = base64.b64decode(desprendible.archivo_pdf)
+
+        # Enviar correo
+        try:
+            email = EmailMessage(
+                subject=f'Desprendible de Nómina - {periodo} - SoftVar',
+                body=f"""Hola {empleado.nombres} {empleado.apellidos},
+
+Adjunto encontrarás tu desprendible de nómina correspondiente al período {periodo}.
+
+El neto a pagar es de ${float(liquidacion.neto_pagar):,.2f} COP.
+
+Puedes revisar el detalle completo en el archivo adjunto.
+
+Atentamente,
+El Equipo de Recursos Humanos
+SoftVar S.A.S.""",
+                from_email=django_settings.DEFAULT_FROM_EMAIL,
+                to=[empleado.email],
+            )
+            email.attach(f'desprendible_nomina_{periodo}.pdf', pdf_bytes, 'application/pdf')
+            email.send(fail_silently=False)
+
+            desprendible.estado = 'ENVIADO'
+            desprendible.fecha_envio = timezone.now()
+            desprendible.email_enviado_a = empleado.email
+            desprendible.save()
+
+            enviados += 1
+            resultados.append({
+                'empleado_id': empleado.id,
+                'empleado_nombre': empleado_nombre,
+                'estado': 'ENVIADO',
+                'email': empleado.email,
+            })
+
+            registrar_auditoria(
+                request.user, 'ENVIAR_DESPRENDIBLE_MASIVO', 'desprendibles',
+                desprendible.id,
+                {'estado': 'GENERADO'},
+                {'estado': 'ENVIADO', 'email': empleado.email, 'periodo': periodo, 'envio_masivo': True},
+                request
+            )
+
+        except Exception as e:
+            fallidos += 1
+            desprendible.estado = 'FALLIDO'
+            desprendible.error_mensaje = str(e)
+            desprendible.save()
+
+            resultados.append({
+                'empleado_id': empleado.id,
+                'empleado_nombre': empleado_nombre,
+                'estado': 'FALLIDO',
+                'error': str(e),
+            })
+
+    return Response({
+        'total': total,
+        'enviados': enviados,
+        'fallidos': fallidos,
+        'resultados': resultados,
+        'message': f'Proceso completado: {enviados} enviados, {fallidos} fallidos de {total} total.',
+    })
+
+
+# ============================================
+# REPORTES — Dashboard API
+# ============================================
+
+def _contar_employee_dias(anio, mes):
+    """
+    Cuenta la cantidad de pares (empleado, día) con asistencia EXITOSA en un mes.
+    Esto es más preciso que contar días únicos porque refleja cuántos empleados
+    trabajaron realmente cada día.
+    """
+    return Asistencia.objects.filter(
+        estado='EXITO',
+        fecha_hora__year=anio,
+        fecha_hora__month=mes
+    ).annotate(
+        day=TruncDay('fecha_hora')
+    ).values('empleado_id', 'day').distinct().count()
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def dashboard_reportes_view(request):
+    """
+    Endpoint del Dashboard de Reportes.
+    Retorna KPIs, datos mensuales para gráficos, top de horas extras y distribución por cargo.
+    Accesible para: GERENTE, ADMIN_RRHH, CONTADOR
+    """
+    role = get_user_role(request.user)
+    if role not in ['GERENTE', 'ADMIN_RRHH', 'CONTADOR', 'ADMIN_SISTEMA']:
+        return Response({'error': 'No tienes permisos para ver reportes'}, status=status.HTTP_403_FORBIDDEN)
+
+    # ===== KPIs =====
+    empleados_activos = Empleado.objects.filter(activo=True).count()
+    empleados_con_salario = Empleado.objects.filter(activo=True, salario_base__gt=0)
+    total_emp_con_salario = empleados_con_salario.count()
+
+    # Asistencia promedio del último mes completo
+    hoy = timezone.localdate()
+    ultimo_mes = hoy.replace(day=1) - timedelta(days=1)
+
+    # Días del mes (para calcular tasa de asistencia)
+    dias_del_mes = calendar.monthrange(ultimo_mes.year, ultimo_mes.month)[1]
+    domingos_um = sum(1 for d in range(1, dias_del_mes + 1)
+                      if date(ultimo_mes.year, ultimo_mes.month, d).weekday() == 6)
+    habiles_um = dias_del_mes - domingos_um
+
+    # Calcular attendance rate: employee-días trabajados / employee-días esperados
+    emp_dias_reales_um = _contar_employee_dias(ultimo_mes.year, ultimo_mes.month)
+    emp_dias_esperados_um = total_emp_con_salario * habiles_um
+
+    attendance_rate = round((emp_dias_reales_um / emp_dias_esperados_um) * 100, 1) if emp_dias_esperados_um > 0 else 0
+    attendance_rate = min(attendance_rate, 100.0)
+
+    # Horas extras totales (desde liquidaciones)
+    total_overtime = LiquidacionNomina.objects.filter(
+        periodo_inicio__year=ultimo_mes.year,
+        periodo_inicio__month=ultimo_mes.month
+    ).aggregate(
+        total_he=Sum('horas_extra_diurnas') + Sum('horas_extra_nocturnas') + Sum('horas_dominicales')
+    )['total_he'] or 0
+    total_overtime = float(total_overtime)
+
+    # Costo nómina del último mes
+    costo_nomina = LiquidacionNomina.objects.filter(
+        periodo_inicio__year=ultimo_mes.year,
+        periodo_inicio__month=ultimo_mes.month
+    ).aggregate(total=Sum('neto_pagar'))['total'] or 0
+    costo_nomina = float(costo_nomina)
+
+    # ===== DATOS MENSUALES (últimos 6 meses) =====
+    meses_datos = []
+    for i in range(5, -1, -1):
+        m = ultimo_mes.month - i
+        a = ultimo_mes.year
+        while m < 1:
+            m += 12
+            a -= 1
+        while m > 12:
+            m -= 12
+            a += 1
+
+        # Employee-días trabajados en el mes (distinct por empleado+día)
+        emp_dias = _contar_employee_dias(a, m)
+
+        # Días hábiles (excluyendo domingos)
+        dias_mes = calendar.monthrange(a, m)[1]
+        domingos_m = sum(1 for d in range(1, dias_mes + 1)
+                         if date(a, m, d).weekday() == 6)
+        habiles = dias_mes - domingos_m
+
+        # Ausencias estimadas
+        ausencias = max(0, (total_emp_con_salario * habiles) - emp_dias)
+
+        # Horas extras del mes desde liquidaciones
+        he_mes = LiquidacionNomina.objects.filter(
+            periodo_inicio__year=a,
+            periodo_inicio__month=m
+        ).aggregate(
+            total=Sum('horas_extra_diurnas') + Sum('horas_extra_nocturnas') + Sum('horas_dominicales')
+        )['total'] or 0
+        he_mes = float(he_mes)
+
+        # Costo nómina del mes
+        costo_mes = LiquidacionNomina.objects.filter(
+            periodo_inicio__year=a,
+            periodo_inicio__month=m
+        ).aggregate(total=Sum('neto_pagar'))['total'] or 0
+        costo_mes = float(costo_mes)
+
+        nombre_mes = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][m - 1]
+
+        meses_datos.append({
+            'mes': f'{nombre_mes} {str(a)[2:]}',
+            'dias_trabajados': emp_dias,
+            'ausencias': int(ausencias),
+            'horas_extras': round(he_mes, 1),
+            'costo_nomina': round(costo_mes, 2),
+        })
+
+    # ===== TOP EMPLEADOS CON MÁS HORAS EXTRAS =====
+    top_he = LiquidacionNomina.objects.filter(
+        periodo_inicio__year=ultimo_mes.year,
+        periodo_inicio__month=ultimo_mes.month
+    ).select_related('empleado').annotate(
+        total_he=Sum('horas_extra_diurnas') + Sum('horas_extra_nocturnas') + Sum('horas_dominicales')
+    ).order_by('-total_he')[:5]
+
+    top_empleados = []
+    for liq in top_he:
+        if liq.total_he and float(liq.total_he) > 0:
+            top_empleados.append({
+                'nombre': f'{liq.empleado.nombres} {liq.empleado.apellidos}',
+                'horas_extras': float(liq.total_he),
+            })
+
+    # ===== DISTRIBUCIÓN POR CARGO =====
+    cargos = Empleado.objects.filter(activo=True).values('cargo').annotate(
+        cantidad=Count('id')
+    ).order_by('-cantidad')
+
+    cargo_data = [{'cargo': c['cargo'], 'empleados': c['cantidad']} for c in cargos]
+
+    return Response({
+        'kpis': {
+            'activeEmployees': empleados_activos,
+            'attendanceRate': attendance_rate,
+            'totalOvertimeHours': round(total_overtime, 1),
+            'monthlyPayrollCost': costo_nomina,
+        },
+        'monthlyData': meses_datos,
+        'topOvertimeEmployees': top_empleados,
+        'departmentData': cargo_data,
+    })

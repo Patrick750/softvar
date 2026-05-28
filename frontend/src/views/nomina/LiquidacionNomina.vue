@@ -129,6 +129,7 @@
                 <th>Empleado</th>
                 <th>Cédula</th>
                 <th class="text-right">Salario Base</th>
+                <th class="text-right">Ajuste</th>
                 <th class="text-right">HE Diurnas</th>
                 <th class="text-right">HE Nocturnas</th>
                 <th class="text-right">Devengado</th>
@@ -143,6 +144,13 @@
                 <td><span class="employee-name">{{ emp.nombres }} {{ emp.apellidos }}</span></td>
                 <td class="text-muted">{{ emp.cedula }}</td>
                 <td class="text-right">{{ formatoMoneda(emp.salario_base) }}</td>
+                <td class="text-right">
+                  <span v-if="emp.salario_base !== emp.salario_base_original" class="badge badge-smmlv" :title="'Original: ' + formatoMoneda(emp.salario_base_original) + '. Ajustado al SMMLV vigente.'">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    SMMLV
+                  </span>
+                  <span v-else class="text-muted" style="font-size: 0.75rem;">—</span>
+                </td>
                 <td class="text-right">{{ formatNumber(emp.horas_extra_diurnas) }} <small class="text-muted">hrs</small></td>
                 <td class="text-right">{{ formatNumber(emp.horas_extra_nocturnas) }} <small class="text-muted">hrs</small></td>
                 <td class="text-right">{{ formatoMoneda(emp.devengado_total) }}</td>
@@ -594,6 +602,27 @@ export default {
 .net-pay {
   font-weight: 700;
   color: var(--color-secondary-700);
+}
+
+/* SMMLV Badge */
+.badge-smmlv {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-accent);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  cursor: help;
+}
+.badge-smmlv:hover {
+  border-color: var(--color-warning-accent);
+  box-shadow: 0 2px 8px rgba(133, 79, 11, 0.15);
 }
 
 /* Spinner */

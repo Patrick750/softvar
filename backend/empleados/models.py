@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth.models import User
 
 class Empleado(models.Model):
@@ -139,7 +140,7 @@ class Asistencia(models.Model):
 
     id = models.AutoField(primary_key=True)
     empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='asistencias')
-    fecha_hora = models.DateTimeField(auto_now_add=True)
+    fecha_hora = models.DateTimeField(default=timezone.now)
     tipo = models.CharField(max_length=10, choices=TIPO_REGISTRO_CHOICES)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='EXITO')
     latitud = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
@@ -165,6 +166,8 @@ class LiquidacionNomina(models.Model):
     periodo_inicio = models.DateField()
     periodo_fin = models.DateField()
     salario_base = models.DecimalField(max_digits=12, decimal_places=2)
+    salario_base_original = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text='Salario base original antes de ajuste SMMLV')
+    smmlv_aplicado = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text='Valor del SMMLV usado en el cálculo')
     valor_hora = models.DecimalField(max_digits=10, decimal_places=2)
     horas_trabajadas = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     horas_extra_diurnas = models.DecimalField(max_digits=6, decimal_places=2, default=0)

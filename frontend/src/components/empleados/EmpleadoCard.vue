@@ -49,6 +49,15 @@
         Editar
       </router-link>
       <button
+        @click="reenviarCredenciales(empleado.id)"
+        class="btn btn-outline-info btn-sm"
+        :disabled="reenviando === empleado.id"
+      >
+        <span v-if="reenviando === empleado.id" class="spinner spinner-sm me-1"></span>
+        <i v-else class="bi bi-envelope-arrow-up"></i>
+        {{ reenviando === empleado.id ? 'Enviando...' : 'Credenciales' }}
+      </button>
+      <button
         @click="eliminarEmpleado(empleado.id)"
         class="btn btn-outline-danger btn-sm"
       >
@@ -60,6 +69,9 @@
 </template>
 
 <script>
+import axios from 'axios'
+import { ref } from 'vue'
+
 export default {
   props: {
     empleado: {
@@ -69,6 +81,21 @@ export default {
   },
   emits: ['empleado-eliminado'],
   setup(props, { emit }) {
+    const reenviando = ref(null)
+
+    const reenviarCredenciales = async (empleadoId) => {
+      if (!confirm('¿Reenviar credenciales de acceso a ' + props.empleado.email + '?')) return
+      reenviando.value = empleadoId
+      try {
+        await axios.post(`/api/empleados/${empleadoId}/reenviar-credenciales/`)
+        alert('Credenciales reenviadas con éxito al correo del empleado.')
+      } catch (error) {
+        const msg = error.response?.data?.error || 'Error al reenviar credenciales'
+        alert('Error: ' + msg)
+      } finally {
+        reenviando.value = null
+      }
+    }
     const formatoMoneda = (valor) => {
       return new Intl.NumberFormat('es-CO', {
         style: 'currency',
@@ -108,6 +135,8 @@ export default {
       formatoMoneda,
       obtenerTipoContrato,
       eliminarEmpleado,
+      reenviarCredenciales,
+      reenviando,
       getProfilePhoto,
       getInitials: (props.empleado.nombres ? props.empleado.nombres.charAt(0) : '?') +
         (props.empleado.apellidos ? props.empleado.apellidos.charAt(0) : '?')

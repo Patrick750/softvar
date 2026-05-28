@@ -43,6 +43,19 @@
           </svg>
         </router-link>
         <button
+          @click="reenviarCredenciales(empleado.id)"
+          class="btn-icon btn-ghost btn-sm-icon btn-email"
+          :disabled="reenviando === empleado.id"
+          data-tooltip="Reenviar credenciales"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+            <line x1="12" y1="13" x2="22" y2="6"/>
+            <line x1="12" y1="13" x2="2" y2="6"/>
+          </svg>
+        </button>
+        <button
           @click="eliminarEmpleado(empleado.id)"
           class="btn-icon btn-ghost btn-sm-icon btn-delete"
           data-tooltip="Eliminar"
@@ -60,6 +73,9 @@
 </template>
 
 <script>
+import axios from 'axios'
+import { ref } from 'vue'
+
 export default {
   props: {
     empleado: { type: Object, required: true },
@@ -67,6 +83,21 @@ export default {
   },
   emits: ['eliminar'],
   setup(props, { emit }) {
+    const reenviando = ref(null)
+
+    const reenviarCredenciales = async (empleadoId) => {
+      if (!confirm('¿Reenviar credenciales de acceso a ' + props.empleado.email + '?')) return
+      reenviando.value = empleadoId
+      try {
+        await axios.post(`/api/empleados/${empleadoId}/reenviar-credenciales/`)
+        alert('Credenciales reenviadas con éxito al correo del empleado.')
+      } catch (error) {
+        const msg = error.response?.data?.error || 'Error al reenviar credenciales'
+        alert('Error: ' + msg)
+      } finally {
+        reenviando.value = null
+      }
+    }
     const getInitials = (props.empleado.nombres ? props.empleado.nombres.charAt(0) : '?') +
       (props.empleado.apellidos ? props.empleado.apellidos.charAt(0) : '?')
 
@@ -87,7 +118,7 @@ export default {
       }
     }
 
-    return { getInitials, getProfilePhoto, eliminarEmpleado }
+    return { getInitials, getProfilePhoto, eliminarEmpleado, reenviarCredenciales, reenviando }
   }
 }
 </script>
@@ -251,11 +282,19 @@ export default {
 .action-btns .btn-icon:hover {
   background: var(--color-primary-50);
   color: var(--color-primary-700);
+}.action-btns .btn-delete:hover {
+    background: var(--color-error-bg);
+    color: var(--color-error-accent);
 }
 
-.action-btns .btn-delete:hover {
-  background: var(--color-error-bg);
-  color: var(--color-error-accent);
+.action-btns .btn-email:hover {
+    background: var(--color-info-bg);
+    color: var(--color-info-accent);
+}
+
+.action-btns .btn-email:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Show actions always on touch devices */

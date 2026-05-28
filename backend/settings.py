@@ -133,7 +133,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Bogota'
 
 USE_I18N = True
 
@@ -153,3 +153,12 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'ortizpatrick750@gmail.com'
 EMAIL_HOST_PASSWORD = 'xczv ouey kdtm opzz'
 DEFAULT_FROM_EMAIL = 'ortizpatrick750@gmail.com'
+
+# ====== Datos del Empleador (SoftVar S.A.S.) ======
+EMPRESA_NOMBRE = 'SoftVar S.A.S.'
+EMPRESA_NIT = '901.234.567-8'
+EMPRESA_DIRECCION = 'Cra. 5 # 12-34, Edificio Centro Empresarial'
+EMPRESA_CIUDAD = 'Neiva, Huila'
+EMPRESA_TELEFONO = '(608) 345-6789'
+EMPRESA_EMAIL = 'info@softvar.com.co'
+EMPRESA_WEB = 'www.softvar.com.co'
