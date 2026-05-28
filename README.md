@@ -684,6 +684,7 @@ Este proyecto sigue el formato de versionado semántico **`MAJOR.MINOR.PATCH`**:
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| `1.4.1` | Mayo 2026 | `.gitignore` mejorado (Python cache, SQLite, IDE, OS) + `git rm --cached` de archivos generados (`__pycache__/`, `db.sqlite3`). Repositorio limpio. |
 | `1.4.0` | Mayo 2026 | Dashboard conectado a datos reales de la BD con endpoint `/api/reportes/dashboard/`. Seed de asistencias (`python manage.py seed_asistencias`) con perfiles por cargo y soporte multi-mes. Envío masivo de desprendibles PDF. Reenvío manual de credenciales. Ajuste automático SMMLV en nómina. Corrección TIME_ZONE a America/Bogota. Migración de `auto_now_add` a `default=timezone.now` en Asistencia.fecha_hora. Documentación completa en README de endpoints API. |
 | `1.3.0` | Mayo 2026 | Corrección del botón "Editar Información" en Portal Personal. Optimización de rendimiento en captura facial: migración a TinyFaceDetector (~5x más rápido). Precarga automática de modelos IA. Mejora en obtención de GPS con fallback sin alta precisión. |
 | `1.1.0` | Mayo 2026 | Rediseño completo del frontend. Nuevo sistema de diseño corporativo con paleta de colores azul/verde, tipografía Work Sans + Young Serif, micro-interacciones, animaciones CSS. Integración de Chart.js para dashboard. Sidebar con navegación por roles. |
