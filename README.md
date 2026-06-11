@@ -203,6 +203,7 @@ El frontend (Vue 3 SPA) se comunica con el backend (Django REST Framework) a tra
 |--------|----------|---------------|-------------|
 | `GET` | `/api/auth/csrf/` | No | Obtener token CSRF |
 | `POST` | `/api/auth/login/` | No | Inicio de sesión |
+| `POST` | `/api/auth/recuperar-contrasena/` | No | Recuperación de contraseña |
 | `GET` | `/api/empleados/` | Sí | Listar empleados |
 | `POST` | `/api/empleados/` | Sí | Crear empleado |
 | `GET` | `/api/empleados/{id}/` | Sí | Detalle empleado |
@@ -256,7 +257,7 @@ El frontend cuenta con 13 vistas/componentes rediseñados con micro-interaccione
 | Ruta | Vista | Rol requerido |
 |------|-------|---------------|
 | `/login` | Login | Público |
-| `/reset-password` | Restablecer contraseña | Público |
+| `/reset-password` | Recuperar contraseña | Público |
 | `/empleados` | Listado de empleados | ADMIN_RRHH |
 | `/empleados/nuevo` | Crear empleado | ADMIN_RRHH |
 | `/empleados/editar/:id` | Editar empleado | ADMIN_RRHH |
@@ -386,6 +387,7 @@ Este proyecto sigue el formato de versionado semántico **`MAJOR.MINOR.PATCH`**:
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| `1.3.0` | Junio 2026 | Recuperación de contraseña: nuevo endpoint público que genera contraseña aleatoria y la envía por correo. Actualización del frontend `ResetPassword.vue` para conectar con API real. |
 | `1.2.0` | Mayo 2026 | Mejoras de seguridad: detección de intentos de fraude facial, restricción de edits de perfil para empleados, prevención de registros duplicados. Corrección de bugs en validación GPS y facial. |
 | `1.1.0` | Mayo 2026 | Rediseño completo del frontend. Nuevo sistema de diseño corporativo con paleta de colores azul/verde, tipografía Work Sans + Young Serif, micro-interacciones, animaciones CSS. Integración de Chart.js para dashboard. Sidebar con navegación por roles. |
 | `1.0.0` | Mayo 2026 | Lanzamiento inicial. Backend Django REST con modelo Empleado, API CRUD con filtros. Frontend Vue 3 con autenticación, gestión de empleados, captura biométrica facial, registro de asistencia, liquidación de nómina simulada, dashboard con gráficas, reportes filtrables, configuración del sistema. |

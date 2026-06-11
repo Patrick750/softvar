@@ -5,8 +5,8 @@
         <div class="auth-logo">
           <i class="bi bi-key"></i>
         </div>
-        <h1 class="auth-title">Restablecer Contraseña</h1>
-        <p class="auth-subtitle">Ingrese su correo para recibir un enlace</p>
+        <h1 class="auth-title">Recuperar Contraseña</h1>
+        <p class="auth-subtitle">Ingrese su correo para recibir una nueva contraseña temporal</p>
       </div>
 
       <div class="auth-card">
@@ -24,8 +24,15 @@
           </template>
 
           <template v-else>
+            <Transition name="fade">
+              <div v-if="errorMsg" class="alert alert-error mb-4">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                {{ errorMsg }}
+              </div>
+            </Transition>
+
             <form @submit.prevent="onSubmit" novalidate>
-            <p class="auth-desc">Ingrese su correo electrónico registrado y le enviaremos un enlace para restablecer su contraseña.</p>
+            <p class="auth-desc">Ingrese su correo electrónico registrado y le enviaremos una nueva contraseña temporal.</p>
 
             <div class="form-group">
               <label class="form-label" for="email">Correo Electrónico</label>
@@ -46,7 +53,7 @@
 
             <button type="submit" class="btn btn-primary btn-block btn-lg" :disabled="loading">
               <span v-if="loading" class="spinner spinner-sm"></span>
-              <span v-else>Enviar Enlace</span>
+              <span v-else>Recuperar Contraseña</span>
             </button>
           </form>
           </template>
@@ -76,21 +83,53 @@ export default {
     const loading = ref(false)
     const success = ref(false)
     const message = ref('')
+    const errorMsg = ref('')
+
+    function getCookie(name) {
+      const value = `; ${document.cookie}`
+      const parts = value.split(`; ${name}=`)
+      if (parts.length === 2) return parts.pop().split(';').shift()
+      return null
+    }
 
     const onSubmit = async () => {
       loading.value = true
+      errorMsg.value = ''
+
       try {
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        await fetch('/api/auth/csrf/', { credentials: 'include' })
+        const csrfToken = getCookie('csrftoken')
+
+        const response = await fetch('/api/auth/recuperar-contrasena/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken || '',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: form.value.email,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          errorMsg.value = data.error || 'Error al procesar la solicitud.'
+          return
+        }
+
         success.value = true
-        message.value = 'Si el correo existe en nuestro sistema, recibirá un enlace para restablecer su contraseña.'
+        message.value = data.message || 'Si el correo existe en nuestro sistema, recibirá un enlace para restablecer su contraseña.'
       } catch (err) {
-        message.value = 'Error al procesar la solicitud.'
+        errorMsg.value = 'Error de conexión con el servidor. Verifique que el backend esté corriendo.'
+        console.error('Reset password error:', err)
       } finally {
         loading.value = false
       }
     }
 
-    return { form, loading, success, message, onSubmit }
+    return { form, loading, success, message, errorMsg, onSubmit }
   }
 }
 </script>

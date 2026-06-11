@@ -10,6 +10,9 @@ from django.utils.decorators import method_decorator
 from django.middleware.csrf import get_token
 from .models import Empleado
 from .serializers import EmpleadoSerializer
+from django.utils.crypto import get_random_string
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 @csrf_exempt
@@ -619,3 +622,102 @@ def cambiar_contrasena_view(request):
     registrar_auditoria(user, 'CAMBIO_CONTRASENA', 'auth_user', user.id, None, None, request)
     
     return Response({'message': 'Contraseña cambiada con éxito.'})
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@authentication_classes([])
+def recuperar_contrasena_view(request):
+    """
+    Endpoint de recuperación de contraseña.
+    Recibe un email, busca al usuario, genera una nueva contraseña aleatoria,
+    la actualiza en el sistema y la envía por correo electrónico al usuario.
+    """
+    email = request.data.get('email', '').strip()
+
+    if not email:
+        return Response(
+            {'error': 'El correo electrónico es requerido'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Siempre devolvemos el mismo mensaje de éxito por seguridad
+    # para no revelar si el email existe o no
+    success_message = 'Si el correo existe en nuestro sistema, recibirá una nueva contraseña temporal en su bandeja de entrada.'
+
+    try:
+        user_obj = User.objects.get(email=email)
+    except User.DoesNotExist:
+        # No revelar que el email no existe
+        return Response({'message': success_message}, status=status.HTTP_200_OK)
+
+    if not user_obj.is_active:
+        return Response({'message': success_message}, status=status.HTTP_200_OK)
+
+    # Generar nueva contraseña aleatoria
+    new_password = get_random_string(length=10)
+
+    # Actualizar la contraseña del usuario
+    user_obj.set_password(new_password)
+    user_obj.save()
+
+    # Obtener datos del empleado asociado para personalizar el correo
+    nombre_completo = user_obj.get_full_name() or user_obj.username
+    try:
+        empleado = user_obj.empleado
+        nombre_completo = f"{empleado.nombres} {empleado.apellidos}"
+    except Exception:
+        pass
+
+    # Enviar correo con la nueva contraseña
+    subject = 'SoftVar - Recuperación de Contraseña'
+    message = f"""Hola {nombre_completo},
+
+Has solicitado la recuperación de tu contraseña del Sistema de Control de Asistencia y Nómina SoftVar.
+
+Se ha generado una nueva contraseña temporal para tu cuenta:
+
+Usuario (Cédula): {user_obj.username}
+Nueva contraseña temporal: {new_password}
+
+Te recomendamos iniciar sesión en http://localhost:5173/login y cambiar tu contraseña desde tu Portal Personal.
+
+Si no solicitaste este cambio, por favor contacta al administrador del sistema de inmediato.
+
+Atentamente,
+El Equipo de Recursos Humanos
+SoftVar - Sistema de Asistencia y Nómina
+"""
+
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        print(f"Error al enviar correo de recuperación: {e}")
+        return Response(
+            {'error': 'Error al enviar el correo de recuperación. Intente nuevamente más tarde.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    # Registrar en auditoría
+    registrar_auditoria(
+        user_obj, 'RECUPERAR_CONTRASENA', 'auth_user', user_obj.id,
+        None, {'email': email},
+        request
+    )
+
+    # También imprimir en consola para debugging
+    print("\n" + "="*50)
+    print(f"RECUPERACIÓN DE CONTRASEÑA PARA: {nombre_completo}")
+    print(f"Email: {email}")
+    print(f"Usuario: {user_obj.username}")
+    print(f"Nueva contraseña: {new_password}")
+    print("="*50 + "\n")
+
+    return Response({'message': success_message}, status=status.HTTP_200_OK)

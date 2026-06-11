@@ -5,7 +5,8 @@ from .views import (
     registrar_asistencia_view, historial_asistencia_view,
     asistencias_pendientes_view, aprobar_asistencia_view,
     configuracion_parametros_view, auditoria_logs_view,
-    get_mi_perfil_view, cambiar_contrasena_view
+    get_mi_perfil_view, cambiar_contrasena_view,
+    recuperar_contrasena_view
 )
 
 router = DefaultRouter()
@@ -15,6 +16,7 @@ urlpatterns = [
     path('auth/login/', login_view, name='auth-login'),
     path('auth/csrf/', csrf_token_view, name='auth-csrf'),
     path('auth/password/', cambiar_contrasena_view, name='auth-password'),
+    path('auth/recuperar-contrasena/', recuperar_contrasena_view, name='auth-recuperar-contrasena'),
     
     path('asistencia/registrar/', registrar_asistencia_view, name='asistencia-registrar'),
     path('asistencia/historial/', historial_asistencia_view, name='asistencia-historial'),
