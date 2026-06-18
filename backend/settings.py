@@ -145,7 +145,11 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# Email configuration for Gmail SMTP
+# ─── Email configuration ────────────────────────────────────────────────
+# En desarrollo usamos Gmail SMTP con App Password.
+# Para producción, se recomienda usar un servicio transaccional como
+# MailerSend, SendGrid o Resend para mejor entregabilidad.
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587

@@ -11,8 +11,11 @@ from django.middleware.csrf import get_token
 from .models import Empleado
 from .serializers import EmpleadoSerializer
 from django.utils.crypto import get_random_string
-from django.core.mail import send_mail
 from django.conf import settings
+import smtplib
+import ssl
+import os
+from email.mime.text import MIMEText
 
 
 @csrf_exempt
@@ -642,18 +645,20 @@ def recuperar_contrasena_view(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Siempre devolvemos el mismo mensaje de éxito por seguridad
-    # para no revelar si el email existe o no
-    success_message = 'Si el correo existe en nuestro sistema, recibirá una nueva contraseña temporal en su bandeja de entrada.'
-
+    # Validar que el email exista en la base de datos
     try:
         user_obj = User.objects.get(email=email)
     except User.DoesNotExist:
-        # No revelar que el email no existe
-        return Response({'message': success_message}, status=status.HTTP_200_OK)
+        return Response(
+            {'error': 'El correo ingresado no está registrado en el sistema.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
     if not user_obj.is_active:
-        return Response({'message': success_message}, status=status.HTTP_200_OK)
+        return Response(
+            {'error': 'La cuenta asociada a este correo está desactivada. Contacte al administrador.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     # Generar nueva contraseña aleatoria
     new_password = get_random_string(length=10)
@@ -670,54 +675,97 @@ def recuperar_contrasena_view(request):
     except Exception:
         pass
 
-    # Enviar correo con la nueva contraseña
-    subject = 'SoftVar - Recuperación de Contraseña'
-    message = f"""Hola {nombre_completo},
+    # ─── Enviar correo directamente con smtplib ───
+    subject = 'SoftVar - Recuperacion de Contrasena'
+    body = f"""Hola {nombre_completo},
 
-Has solicitado la recuperación de tu contraseña del Sistema de Control de Asistencia y Nómina SoftVar.
+Has solicitado la recuperacion de tu contrasena del Sistema SoftVar.
 
-Se ha generado una nueva contraseña temporal para tu cuenta:
+Se ha generado una nueva contrasena temporal para tu cuenta:
 
-Usuario (Cédula): {user_obj.username}
-Nueva contraseña temporal: {new_password}
+Usuario (Cedula): {user_obj.username}
+Nueva contrasena temporal: {new_password}
 
-Te recomendamos iniciar sesión en http://localhost:5173/login y cambiar tu contraseña desde tu Portal Personal.
-
-Si no solicitaste este cambio, por favor contacta al administrador del sistema de inmediato.
-
-Atentamente,
-El Equipo de Recursos Humanos
-SoftVar - Sistema de Asistencia y Nómina
+Inicia sesion en: http://localhost:5173/login
 """
 
+    msg = MIMEText(body, 'plain', 'utf-8')
+    msg['Subject'] = subject
+    msg['From'] = settings.EMAIL_HOST_USER
+    msg['To'] = email
+
+    email_enviado = False
+    email_error = ''
+    log_path = os.path.join(settings.BASE_DIR, 'recovery_log.txt')
+
     try:
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [email],
-            fail_silently=False,
-        )
+        server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=30)
+        server.ehlo()
+        server.starttls(context=ssl.create_default_context())
+        server.ehlo()
+        server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
+        server.sendmail(settings.EMAIL_HOST_USER, [email], msg.as_string())
+        server.quit()
+        email_enviado = True
+        print(f"  ✅ Correo enviado a {email}", flush=True)
     except Exception as e:
-        print(f"Error al enviar correo de recuperación: {e}")
-        return Response(
-            {'error': 'Error al enviar el correo de recuperación. Intente nuevamente más tarde.'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        email_error = str(e)
+        print(f"  ❌ Error SMTP: {type(e).__name__}: {e}", flush=True)
+
+    # ─── Guardar en archivo de log visible ───
+    try:
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"\n{'='*60}\n")
+            f.write(f"FECHA: {timezone.localtime().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"EMAIL: {email}\n")
+            f.write(f"USUARIO: {user_obj.username}\n")
+            f.write(f"CONTRASENA: {new_password}\n")
+            f.write(f"ENVIADO: {'SI' if email_enviado else 'NO - ' + email_error}\n")
+            f.write(f"{'='*60}\n")
+        print(f"  ✅ Contrasena guardada en: {log_path}", flush=True)
+    except Exception as e:
+        print(f"  ❌ Error guardando log: {e}", flush=True)
 
     # Registrar en auditoría
     registrar_auditoria(
         user_obj, 'RECUPERAR_CONTRASENA', 'auth_user', user_obj.id,
-        None, {'email': email},
+        None, {'email': email, 'enviado': email_enviado},
         request
     )
 
-    # También imprimir en consola para debugging
-    print("\n" + "="*50)
-    print(f"RECUPERACIÓN DE CONTRASEÑA PARA: {nombre_completo}")
-    print(f"Email: {email}")
-    print(f"Usuario: {user_obj.username}")
-    print(f"Nueva contraseña: {new_password}")
-    print("="*50 + "\n")
+    # ─── Imprimir en la terminal del servidor Django ───
+    print("\n" + "═"*60, flush=True)
+    print("  🔐 RECUPERACIÓN DE CONTRASEÑA", flush=True)
+    print("═"*60, flush=True)
+    print(f"  👤  Empleado:  {nombre_completo}", flush=True)
+    print(f"  📧  Email:     {email}", flush=True)
+    print(f"  🔑  Usuario:   {user_obj.username}", flush=True)
+    print(f"  🆕  Contraseña: {new_password}", flush=True)
+    print(f"  📨  Email:     {'ENVIADO' if email_enviado else 'FALLÓ - ' + email_error}", flush=True)
+    print(f"  📄  Log:       {log_path}", flush=True)
+    print("═"*60, flush=True)
+    print(f"  ▶  Inicia sesión en: http://localhost:5173/login", flush=True)
+    print("═"*60 + "\n", flush=True)
 
-    return Response({'message': success_message}, status=status.HTTP_200_OK)
+    # Respuesta
+    if not email_enviado:
+        response_data = {
+            'message': 'Contraseña generada pero no se pudo enviar el correo.',
+            'email': email,
+            'username': user_obj.username,
+            'email_error': email_error
+        }
+        if settings.DEBUG:
+            response_data['debug_password'] = new_password
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    success_message = 'Correo enviado exitosamente. Revisa tu bandeja de entrada.'
+    response_data = {
+        'message': success_message,
+        'email': email,
+        'username': user_obj.username
+    }
+    if settings.DEBUG:
+        response_data['debug_password'] = new_password
+
+    return Response(response_data, status=status.HTTP_200_OK)

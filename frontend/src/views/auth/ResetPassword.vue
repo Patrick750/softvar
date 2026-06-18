@@ -120,7 +120,7 @@ export default {
         }
 
         success.value = true
-        message.value = data.message || 'Si el correo existe en nuestro sistema, recibirá un enlace para restablecer su contraseña.'
+        message.value = data.message || 'Correo enviado exitosamente.'
       } catch (err) {
         errorMsg.value = 'Error de conexión con el servidor. Verifique que el backend esté corriendo.'
         console.error('Reset password error:', err)
