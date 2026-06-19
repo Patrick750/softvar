@@ -30,7 +30,7 @@ class EmpleadoAPITest(TestCase):
             'nombres': 'Juan',
             'apellidos': 'Pérez',
             'email': 'juan.perez@example.com',
-            'cargo': 'Desarrollador',
+            'cargo': 'Desarrollador Senior',
             'tipo_contrato': 'TERMINO_FIJO',
             'salario_base': '3000000.00',
             'fecha_ingreso': '2026-01-15',
