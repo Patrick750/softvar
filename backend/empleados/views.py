@@ -291,9 +291,9 @@ def registrar_asistencia_view(request):
     try:
         lat_oficina = float(get_parametro('OFICINA_LATITUD', '2.927300', 'Latitud centro de la sede'))
         lon_oficina = float(get_parametro('OFICINA_LONGITUD', '-75.281800', 'Longitud centro de la sede'))
-        radio_limite = float(get_parametro('OFICINA_RADIO_METROS', '100.0', 'Radio permitido en metros'))
+        radio_limite = float(get_parametro('OFICINA_RADIO_METROS', '100000.0', 'Radio permitido en metros'))
     except ValueError:
-        lat_oficina, lon_oficina, radio_limite = 2.927300, -75.281800, 100.0
+        lat_oficina, lon_oficina, radio_limite = 2.927300, -75.281800, 100000.0
 
     # 1. Manual approval request route
     if solicitar_manual:
@@ -335,7 +335,7 @@ def registrar_asistencia_view(request):
             face_score = None
         else:
             face_score = calcular_distancia_facial(empleado.foto_facial, descriptor_cap)
-            if face_score is None or face_score > 0.6: # Euclidean distance threshold of 0.6 represents ~80% similarity
+            if face_score is None or face_score > 0.8: # Euclidean distance threshold increased to 0.8 to be more permissive
                 face_ok = False
     else:
         face_ok = False # Face biometrics is mandatory for automatic validation
@@ -345,7 +345,7 @@ def registrar_asistencia_view(request):
         if not face_ok and gps_ok:
             # Facial mismatch -> potential fraud
             estado = 'FRAUDE'
-            observaciones = f"Intento de fraude facial detectado. Score={face_score:.3f}, umbral=0.6"
+            observaciones = f"Intento de fraude facial detectado. Score={face_score:.3f}, umbral=0.8"
             audit_action = 'INTENTO_FRAUDE_ASISTENCIA'
             message = 'Intento de fraude detectado. Rostro no coincide con el registrado.'
             status_code = status.HTTP_400_BAD_REQUEST
@@ -361,7 +361,7 @@ def registrar_asistencia_view(request):
                 elif face_score is None:
                     failure_reasons.append("No se pudo calcular la comparación facial")
                 else:
-                    failure_reasons.append(f"Rostro no coincide (Score={face_score:.3f}, umbral=0.6)")
+                    failure_reasons.append(f"Rostro no coincide (Score={face_score:.3f}, umbral=0.8)")
             observaciones = "Fallo de verificación. " + ". ".join(failure_reasons)
             audit_action = 'INTENTO_FALLIDO_ASISTENCIA'
             message = 'No se pudo verificar su asistencia de forma automática.'
