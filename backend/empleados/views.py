@@ -285,6 +285,18 @@ def registrar_asistencia_view(request):
             'message': f'Ya registraste tu {tipo_label} hoy. No puedes registrar otra {tipo_label} el mismo día.',
             'status': 'DUPLICADO'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validar flujo: No permitir SALIDA sin ENTRADA previa
+    if tipo == 'SALIDA' and not Asistencia.objects.filter(
+        empleado=empleado,
+        tipo='ENTRADA',
+        estado__in=['EXITO', 'PENDIENTE_APROBACION'],
+        fecha_hora__date=timezone.localdate(),
+    ).exists():
+        return Response({
+            'message': 'No puedes registrar tu salida sin haber registrado tu entrada primero.',
+            'status': 'FALTA_ENTRADA'
+        }, status=status.HTTP_400_BAD_REQUEST)
         
     latitud_cap = request.data.get('latitud')
     longitud_cap = request.data.get('longitud')
@@ -298,8 +310,14 @@ def registrar_asistencia_view(request):
         lat_oficina = float(get_parametro('OFICINA_LATITUD', '2.927300', 'Latitud centro de la sede'))
         lon_oficina = float(get_parametro('OFICINA_LONGITUD', '-75.281800', 'Longitud centro de la sede'))
         radio_limite = float(get_parametro('OFICINA_RADIO_METROS', '100000.0', 'Radio permitido en metros'))
+        hora_entrada_inicio = get_parametro('HORARIO_ENTRADA_INICIO', '06:00', 'Hora inicio permitida para entrada')
+        hora_entrada_fin = get_parametro('HORARIO_ENTRADA_FIN', '10:00', 'Hora fin permitida para entrada')
+        hora_salida_inicio = get_parametro('HORARIO_SALIDA_INICIO', '15:00', 'Hora inicio permitida para salida')
+        hora_salida_fin = get_parametro('HORARIO_SALIDA_FIN', '23:00', 'Hora fin permitida para salida')
     except ValueError:
         lat_oficina, lon_oficina, radio_limite = 2.927300, -75.281800, 100000.0
+        hora_entrada_inicio, hora_entrada_fin = '06:00', '10:00'
+        hora_salida_inicio, hora_salida_fin = '15:00', '23:00'
 
     # 1. Manual approval request route
     if solicitar_manual:
@@ -322,6 +340,37 @@ def registrar_asistencia_view(request):
         }, status=status.HTTP_201_CREATED)
 
     # 2. Automatic validation flow
+    
+    # Validar horario permitido
+    from datetime import datetime
+    ahora = timezone.localtime().time()
+    def parse_time(time_str):
+        try:
+            return datetime.strptime(time_str, '%H:%M').time()
+        except:
+            return None
+            
+    horario_ok = True
+    horario_msg = ""
+    if tipo == 'ENTRADA':
+        t_inicio = parse_time(hora_entrada_inicio) or parse_time('06:00')
+        t_fin = parse_time(hora_entrada_fin) or parse_time('10:00')
+        if not (t_inicio <= ahora <= t_fin):
+            horario_ok = False
+            horario_msg = f"Estás intentando registrar asistencia en un horario no permitido. Las entradas solo se permiten entre {t_inicio.strftime('%H:%M')} y {t_fin.strftime('%H:%M')}."
+    elif tipo == 'SALIDA':
+        t_inicio = parse_time(hora_salida_inicio) or parse_time('15:00')
+        t_fin = parse_time(hora_salida_fin) or parse_time('23:00')
+        if not (t_inicio <= ahora <= t_fin):
+            horario_ok = False
+            horario_msg = f"Estás intentando registrar asistencia en un horario no permitido. Las salidas solo se permiten entre {t_inicio.strftime('%H:%M')} y {t_fin.strftime('%H:%M')}."
+
+    if not horario_ok:
+        return Response({
+            'status': 'FUERA_DE_HORARIO',
+            'message': horario_msg
+        }, status=status.HTTP_400_BAD_REQUEST)
+
     gps_ok = True
     distancia = 0.0
     if latitud_cap is not None and longitud_cap is not None:
@@ -341,7 +390,7 @@ def registrar_asistencia_view(request):
             face_score = None
         else:
             face_score = calcular_distancia_facial(empleado.foto_facial, descriptor_cap)
-            if face_score is None or face_score > 0.8: # Euclidean distance threshold increased to 0.8 to be more permissive
+            if face_score is None or face_score > 0.65: # Euclidean distance threshold increased to 0.65 to be more permissive
                 face_ok = False
     else:
         face_ok = False # Face biometrics is mandatory for automatic validation
@@ -351,26 +400,26 @@ def registrar_asistencia_view(request):
         if not face_ok and gps_ok:
             # Facial mismatch -> potential fraud
             estado = 'FRAUDE'
-            observaciones = f"Intento de fraude facial detectado. Score={face_score:.3f}, umbral=0.8"
+            observaciones = f"Intento de fraude facial detectado. Score={face_score:.3f}, umbral=0.65"
             audit_action = 'INTENTO_FRAUDE_ASISTENCIA'
-            message = 'Intento de fraude detectado. Rostro no coincide con el registrado.'
+            message = 'Intento de fraude detectado. El rostro escaneado no coincide con el propietario de la cuenta.'
             status_code = status.HTTP_400_BAD_REQUEST
         else:
             # GPS failure or both -> regular failed attempt
             estado = 'FALLIDO'
             failure_reasons = []
             if not gps_ok:
-                failure_reasons.append(f"GPS fuera de rango (Distancia={distancia:.1f}m)")
+                failure_reasons.append(f"estás fuera del radio permitido de la oficina (Distancia: {distancia:.1f}m, Permitido: {radio_limite}m)")
             if not face_ok:
                 if no_facial_data:
-                    failure_reasons.append("No hay foto facial registrada para este empleado")
+                    failure_reasons.append("no tienes una foto facial registrada en tu cuenta")
                 elif face_score is None:
-                    failure_reasons.append("No se pudo calcular la comparación facial")
+                    failure_reasons.append("no se pudo verificar la similitud facial")
                 else:
-                    failure_reasons.append(f"Rostro no coincide (Score={face_score:.3f}, umbral=0.8)")
-            observaciones = "Fallo de verificación. " + ". ".join(failure_reasons)
+                    failure_reasons.append(f"el rostro escaneado no coincide con el tuyo")
+            observaciones = "Fallo de verificación. " + " y ".join(failure_reasons)
             audit_action = 'INTENTO_FALLIDO_ASISTENCIA'
-            message = 'No se pudo verificar su asistencia de forma automática.'
+            message = 'No se pudo registrar la asistencia porque ' + ' y '.join(failure_reasons) + '.'
             status_code = status.HTTP_400_BAD_REQUEST
 
         # Save attempt

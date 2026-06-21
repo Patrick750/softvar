@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
-from empleados.models import Empleado
+from backend.empleados.models import Empleado
 
 class EmpleadoAPITest(TestCase):
     def setUp(self):
