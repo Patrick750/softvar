@@ -3,7 +3,7 @@ from django.contrib.auth.models import User, Group
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.conf import settings
-from .models import Empleado
+from .models import Empleado, Nomina, DetalleNomina
 
 class EmpleadoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -90,6 +90,20 @@ El Equipo de Recursos Humanos
         cedula = validated_data.get('cedula')
         if cedula and instance.user and instance.user.username != cedula:
             instance.user.username = cedula
-            instance.user.save()
-            
         return super().update(instance, validated_data)
+
+class DetalleNominaSerializer(serializers.ModelSerializer):
+    nombres = serializers.CharField(source='empleado.nombres', read_only=True)
+    apellidos = serializers.CharField(source='empleado.apellidos', read_only=True)
+    cedula = serializers.CharField(source='empleado.cedula', read_only=True)
+
+    class Meta:
+        model = DetalleNomina
+        fields = '__all__'
+
+class NominaSerializer(serializers.ModelSerializer):
+    detalles = DetalleNominaSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Nomina
+        fields = '__all__'

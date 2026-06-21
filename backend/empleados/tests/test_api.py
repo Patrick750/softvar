@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
+from empleados.models import Empleado
 
 class EmpleadoAPITest(TestCase):
     def setUp(self):
@@ -41,3 +42,35 @@ class EmpleadoAPITest(TestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['cedula'], '1234567890')
+
+    def test_generar_nomina(self):
+        # Create an employee first
+        Empleado.objects.create(
+            user=self.admin_user,
+            cedula='123456',
+            nombres='Prueba',
+            apellidos='Nomina',
+            email='test@example.com',
+            cargo='Desarrollador Senior',
+            tipo_contrato='TERMINO_FIJO',
+            salario_base='2400000.00', # 10,000 per hour
+            fecha_ingreso='2026-01-01',
+            eps='Sura',
+            afp='Porvenir',
+            arl='Positiva',
+            activo=True
+        )
+
+        url = reverse('nomina-generar')
+        data = {
+            'mes': 6,
+            'ano': 2026,
+            'novedades': {}
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(float(response.data['total_devengados']), 2400000.00)
+        
+        # Check that it prevents duplicate generation
+        response_dup = self.client.post(url, data, format='json')
+        self.assertEqual(response_dup.status_code, status.HTTP_400_BAD_REQUEST)

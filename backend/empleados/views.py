@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, action
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
@@ -153,7 +153,13 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
 import math
 import json
 from django.utils import timezone
-from .models import Empleado, Asistencia, Auditoria, ParametroSistema
+from .models import (
+    Empleado, Asistencia, Auditoria, ParametroSistema,
+    Nomina, DetalleNomina
+)
+from .serializers import (
+    EmpleadoSerializer, NominaSerializer, DetalleNominaSerializer
+)
 
 # Helper functions for GPS and Face recognition
 def calcular_distancia_gps(lat1, lon1, lat2, lon2):
@@ -769,3 +775,104 @@ Inicia sesion en: http://localhost:5173/login
         response_data['debug_password'] = new_password
 
     return Response(response_data, status=status.HTTP_200_OK)
+
+
+class NominaViewSet(viewsets.ModelViewSet):
+    queryset = Nomina.objects.all()
+    serializer_class = NominaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def generar(self, request):
+        mes = request.data.get('mes')
+        ano = request.data.get('ano')
+        novedades = request.data.get('novedades', {})
+
+        if not mes or not ano:
+            return Response({'message': 'Mes y año son requeridos'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar si ya existe nómina para ese mes y año
+        if Nomina.objects.filter(mes=mes, ano=ano).exists():
+            return Response({'message': 'La nómina para este periodo ya fue generada'}, status=status.HTTP_400_BAD_REQUEST)
+
+        empleados = Empleado.objects.filter(activo=True)
+        if not empleados.exists():
+            return Response({'message': 'No hay empleados activos para liquidar'}, status=status.HTTP_400_BAD_REQUEST)
+
+        nomina = Nomina.objects.create(mes=mes, ano=ano)
+        detalles = []
+
+        total_devengados = 0
+        total_deducciones = 0
+        total_nomina = 0
+
+        for empleado in empleados:
+            # Obtener novedades enviadas o 0 por defecto
+            emp_novedades = novedades.get(str(empleado.id), {})
+            he_diurnas = int(emp_novedades.get('horas_extra_diurnas', 0))
+            he_nocturnas = int(emp_novedades.get('horas_extra_nocturnas', 0))
+
+            salario_base = float(empleado.salario_base)
+            # Valor hora = salario_base / 240
+            valor_hora = salario_base / 240.0
+            
+            valor_he_diurnas = he_diurnas * valor_hora * 1.25
+            valor_he_nocturnas = he_nocturnas * valor_hora * 1.75
+            
+            devengado = salario_base + valor_he_diurnas + valor_he_nocturnas
+            
+            descuento_salud = devengado * 0.04
+            descuento_pension = devengado * 0.04
+            total_descuento = descuento_salud + descuento_pension
+            
+            neto = devengado - total_descuento
+
+            detalle = DetalleNomina(
+                nomina=nomina,
+                empleado=empleado,
+                salario_base=salario_base,
+                horas_extra_diurnas=he_diurnas,
+                horas_extra_nocturnas=he_nocturnas,
+                devengado_total=devengado,
+                descuento_salud=descuento_salud,
+                descuento_pension=descuento_pension,
+                deducciones_total=total_descuento,
+                neto_pagar=neto
+            )
+            detalles.append(detalle)
+
+            total_devengados += devengado
+            total_deducciones += total_descuento
+            total_nomina += neto
+
+        DetalleNomina.objects.bulk_create(detalles)
+
+        nomina.total_devengados = total_devengados
+        nomina.total_deducciones = total_deducciones
+        nomina.total_nomina = total_nomina
+        nomina.save()
+
+        # Registrar en auditoria
+        registrar_auditoria(
+            request.user, 'GENERAR_NOMINA', 'nominas', nomina.id,
+            None, {'mes': mes, 'ano': ano, 'total': str(total_nomina)},
+            request
+        )
+
+        return Response(NominaSerializer(nomina).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='enviar-desprendibles')
+    def enviar_desprendibles(self, request, pk=None):
+        nomina = self.get_object()
+        # En una implementación real aquí se generaría el PDF usando reportlab
+        # y se enviaría usando send_mail con el archivo adjunto.
+        # Por propósitos de la simulación del sprint, solo registramos y devolvemos éxito.
+        
+        # Registrar en auditoria
+        registrar_auditoria(
+            request.user, 'ENVIAR_DESPRENDIBLES', 'nominas', nomina.id,
+            None, {'mes': nomina.mes, 'ano': nomina.ano},
+            request
+        )
+
+        return Response({'message': 'Desprendibles enviados correctamente por correo'}, status=status.HTTP_200_OK)

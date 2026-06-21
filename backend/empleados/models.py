@@ -176,3 +176,39 @@ class Auditoria(models.Model):
 
     def __str__(self):
         return f"{self.accion} on {self.tabla_afectada} by {self.usuario or 'System'} at {self.fecha_hora}"
+class Nomina(models.Model):
+    id = models.AutoField(primary_key=True)
+    mes = models.IntegerField()
+    ano = models.IntegerField()
+    fecha_generacion = models.DateTimeField(auto_now_add=True)
+    total_nomina = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_devengados = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_deducciones = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        db_table = 'nominas'
+        ordering = ['-ano', '-mes']
+        unique_together = ('mes', 'ano')
+
+    def __str__(self):
+        return f"Nómina {self.mes}/{self.ano}"
+
+
+class DetalleNomina(models.Model):
+    id = models.AutoField(primary_key=True)
+    nomina = models.ForeignKey(Nomina, on_delete=models.CASCADE, related_name='detalles')
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='liquidaciones')
+    salario_base = models.DecimalField(max_digits=10, decimal_places=2)
+    horas_extra_diurnas = models.IntegerField(default=0)
+    horas_extra_nocturnas = models.IntegerField(default=0)
+    devengado_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    descuento_salud = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    descuento_pension = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    deducciones_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    neto_pagar = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        db_table = 'detalles_nomina'
+
+    def __str__(self):
+        return f"Detalle {self.empleado} - Nómina {self.nomina.mes}/{self.nomina.ano}"

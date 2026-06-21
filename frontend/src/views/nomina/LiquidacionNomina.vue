@@ -94,9 +94,9 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
                 Exportar a Excel
               </button>
-              <button class="btn btn-outline btn-ach" @click="exportarACH">
+              <button class="btn btn-outline btn-ach" @click="enviarDesprendibles">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                Exportar ACH
+                Enviar Desprendibles
               </button>
             </div>
           </div>
@@ -179,6 +179,7 @@ export default {
     const generando = ref(false)
     const detalleNomina = ref([])
     const resumen = ref({ totalEmpleados: 0, nominaTotal: 0, totalDevengados: 0, totalDeducciones: 0 })
+    const nominaId = ref(null)
 
     const periodoLabel = computed(() => `${meses[periodo.value.mes] || ''} ${periodo.value.ano}`)
 
@@ -187,40 +188,26 @@ export default {
       generando.value = true
 
       try {
-        await new Promise(resolve => setTimeout(resolve, 1500))
-
-        const empleadosEjemplo = [
-          { id: 1, nombres: 'Juan', apellidos: 'Pérez Gómez', cedula: '1020304050', cargo: 'Asistente Administrativo', salario_base: 2000000, horas_extra_diurnas: 10, horas_extra_nocturnas: 5 },
-          { id: 2, nombres: 'María', apellidos: 'López Rivera', cedula: '1030405060', cargo: 'Analista de RRHH', salario_base: 2800000, horas_extra_diurnas: 8, horas_extra_nocturnas: 3 },
-          { id: 3, nombres: 'Carlos', apellidos: 'Rodríguez Silva', cedula: '1040506070', cargo: 'Desarrollador Junior', salario_base: 3200000, horas_extra_diurnas: 12, horas_extra_nocturnas: 0 }
-        ]
-
-        detalleNomina.value = empleadosEjemplo.map(emp => {
-          const salarioBase = emp.salario_base
-          const heDiurnasValor = emp.horas_extra_diurnas * (salarioBase / 240) * 1.25
-          const heNocturnasValor = emp.horas_extra_nocturnas * (salarioBase / 240) * 1.75
-          const devengadoTotal = salarioBase + heDiurnasValor + heNocturnasValor
-          const descuentoSalud = devengadoTotal * 0.04
-          const descuentoPension = devengadoTotal * 0.04
-          return {
-            ...emp,
-            devengado_total: devengadoTotal,
-            descuento_salud: descuentoSalud,
-            descuento_pension: descuentoPension,
-            deducciones_total: descuentoSalud + descuentoPension,
-            neto_pagar: devengadoTotal - (descuentoSalud + descuentoPension)
-          }
+        const response = await axios.post('/api/nomina/generar/', {
+          mes: periodo.value.mes,
+          ano: periodo.value.ano,
+          novedades: {} // En el futuro se puede añadir una interfaz para esto
         })
+
+        const nomina = response.data
+        nominaId.value = nomina.id
+        detalleNomina.value = nomina.detalles || []
 
         nominaGenerada.value = true
         resumen.value = {
           totalEmpleados: detalleNomina.value.length,
-          nominaTotal: detalleNomina.value.reduce((s, e) => s + e.neto_pagar, 0),
-          totalDevengados: detalleNomina.value.reduce((s, e) => s + e.devengado_total, 0),
-          totalDeducciones: detalleNomina.value.reduce((s, e) => s + e.deducciones_total, 0)
+          nominaTotal: parseFloat(nomina.total_nomina),
+          totalDevengados: parseFloat(nomina.total_devengados),
+          totalDeducciones: parseFloat(nomina.total_deducciones)
         }
       } catch (err) {
         console.error('Error:', err)
+        alert(err.response?.data?.message || 'Error al generar la nómina.')
       } finally {
         generando.value = false
       }
@@ -230,11 +217,19 @@ export default {
     const formatNumber = (v) => new Intl.NumberFormat('es-CO').format(v || 0)
 
     const exportarExcel = () => alert('Exportando a Excel...')
-    const exportarACH = () => alert('Generando archivo ACH...')
+    const enviarDesprendibles = async () => {
+      if (!nominaId.value) return
+      try {
+        const res = await axios.post(`/api/nomina/${nominaId.value}/enviar-desprendibles/`)
+        alert(res.data.message || 'Desprendibles enviados.')
+      } catch (e) {
+        alert('Error enviando desprendibles.')
+      }
+    }
 
     onMounted(() => { periodo.value.mes = new Date().getMonth() + 1 })
 
-    return { meses, periodo, nominaGenerada, generando, detalleNomina, resumen, periodoLabel, generarNomina, formatoMoneda, formatNumber, exportarExcel, exportarACH }
+    return { meses, periodo, nominaGenerada, generando, detalleNomina, resumen, periodoLabel, generarNomina, formatoMoneda, formatNumber, exportarExcel, enviarDesprendibles }
   }
 }
 </script>

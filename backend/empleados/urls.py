@@ -6,11 +6,12 @@ from .views import (
     asistencias_pendientes_view, aprobar_asistencia_view,
     configuracion_parametros_view, auditoria_logs_view,
     get_mi_perfil_view, cambiar_contrasena_view,
-    recuperar_contrasena_view
+    recuperar_contrasena_view, NominaViewSet
 )
 
 router = DefaultRouter()
 router.register(r'empleados', EmpleadoViewSet)
+router.register(r'nomina', NominaViewSet, basename='nomina')
 
 urlpatterns = [
     path('auth/login/', login_view, name='auth-login'),
