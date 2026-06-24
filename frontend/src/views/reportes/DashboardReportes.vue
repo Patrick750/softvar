@@ -121,7 +121,7 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import api from '@/services/api'
+import axios from 'axios'
 
 export default {
 setup() {
@@ -256,7 +256,7 @@ setup() {
 
     onMounted(async () => {
       try {
-        const response = await api.get('/reportes/dashboard/')
+        const response = await axios.get('/api/reportes/dashboard/')
         metrics.value = response.data.metrics
         
         // Wait for DOM to be ready for charts

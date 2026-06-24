@@ -130,7 +130,7 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import api from '@/services/api'
+import axios from 'axios'
 
 export default {
   setup() {
@@ -149,7 +149,7 @@ export default {
       cargando.value = true
 
       try {
-        const response = await api.get('/reportes/generar/', {
+        const response = await axios.get('/api/reportes/generar/', {
           params: {
             tipo: filtros.value.tipo,
             fechaInicio: filtros.value.fechaInicio,
@@ -216,7 +216,7 @@ export default {
 
     onMounted(async () => {
       try {
-        const response = await api.get('/empleados/')
+        const response = await axios.get('/api/empleados/')
         empleados.value = response.data.results || response.data
       } catch (error) {
         console.error('Error cargando empleados:', error)
