@@ -130,6 +130,7 @@
 
 <script>
 import { ref, onMounted } from 'vue'
+import api from '@/services/api'
 
 export default {
   setup() {
@@ -141,100 +142,85 @@ export default {
     const empleados = ref([])
     const hoy = new Date().toISOString().split('T')[0]
 
+    const fMoneda = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(v)
+
     const generarReporte = async () => {
       if (!filtros.value.tipo || !filtros.value.fechaInicio || !filtros.value.fechaFin) return
       cargando.value = true
 
       try {
-        await new Promise(resolve => setTimeout(resolve, 1200))
+        const response = await api.get('/reportes/generar/', {
+          params: {
+            tipo: filtros.value.tipo,
+            fechaInicio: filtros.value.fechaInicio,
+            fechaFin: filtros.value.fechaFin,
+            empleadoId: filtros.value.empleadoId
+          }
+        })
+        
+        datosReporte.value = response.data
 
         switch (filtros.value.tipo) {
           case 'asistencia':
             columnas.value = ['Fecha', 'Empleado', 'Cédula', 'Entrada', 'Salida', 'Horas', 'Estado']
-            datosReporte.value = generarAsistencia()
             break
           case 'nomina':
             columnas.value = ['Empleado', 'Cédula', 'Salario Base', 'Devengado', 'Deducciones', 'Neto']
-            datosReporte.value = generarNomina()
             break
           case 'horas-extras':
             columnas.value = ['Empleado', 'Cédula', 'H. Diurnas', 'H. Nocturnas', 'Valor Total']
-            datosReporte.value = generarHorasExtras()
             break
           case 'ausencias':
             columnas.value = ['Empleado', 'Cédula', 'Fecha', 'Tipo', 'Justificada']
-            datosReporte.value = generarAusencias()
             break
         }
         reporteGenerado.value = true
       } catch (err) {
-        console.error('Error:', err)
+        console.error('Error generando reporte:', err)
+        alert('Error generando el reporte. Por favor intente de nuevo.')
       } finally {
         cargando.value = false
       }
     }
 
-    const fMoneda = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(v)
-
-    const generarAsistencia = () => {
-      const start = new Date(filtros.value.fechaInicio)
-      const end = new Date(filtros.value.fechaFin)
-      const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
-      const data = []
-      for (let i = 0; i < Math.min(days, 15); i++) {
-        const d = new Date(start.getTime() + i * 86400000)
-        const ds = d.toLocaleDateString('es-CO')
-        empleados.value.slice(0, 3).forEach(emp => {
-          const ok = Math.random() > 0.2
-          const hIn = ok ? `${String(7 + Math.floor(Math.random() * 2)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : '-'
-          const hOut = ok ? `${String(16 + Math.floor(Math.random() * 3)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : '-'
-          const hrs = ok ? ((parseInt(hOut.split(':')[0]) - parseInt(hIn.split(':')[0])) + (parseInt(hOut.split(':')[1]) - parseInt(hIn.split(':')[1])) / 60).toFixed(1) : '0'
-          const estado = ok ? (Math.random() > 0.05 ? 'Registrado' : 'Fallido') : 'Faltante'
-          data.push({ id: data.length + 1, fecha: ds, empleado: `${emp.nombres} ${emp.apellidos}`, cedula: emp.cedula, entrada: hIn, salida: hOut, horas: hrs, estado })
+    const exportarExcel = () => {
+      if (datosReporte.value.length === 0) return
+      
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF"
+      csvContent += columnas.value.join(",") + "\n"
+      
+      datosReporte.value.forEach(row => {
+        let rowArray = []
+        columnas.value.forEach(col => {
+          let val = row[col] || ""
+          if (typeof val === 'string' && val.includes(',')) {
+            val = `"${val}"`
+          }
+          rowArray.push(val)
         })
+        csvContent += rowArray.join(",") + "\n"
+      })
+      
+      const encodedUri = encodeURI(csvContent)
+      const link = document.createElement("a")
+      link.setAttribute("href", encodedUri)
+      link.setAttribute("download", `Reporte_${filtros.value.tipo}_${filtros.value.fechaInicio}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+    
+    const imprimirPDF = () => {
+      window.print()
+    }
+
+    onMounted(async () => {
+      try {
+        const response = await api.get('/empleados/')
+        empleados.value = response.data.results || response.data
+      } catch (error) {
+        console.error('Error cargando empleados:', error)
       }
-      return data
-    }
-
-    const generarNomina = () => {
-      return empleados.value.slice(0, 8).map(emp => {
-        const sb = Math.floor(Math.random() * 3000000) + 1300000
-        const dev = sb + Math.floor(Math.random() * 500000)
-        const ded = dev * 0.08
-        return { id: Date.now() + Math.random(), empleado: `${emp.nombres} ${emp.apellidos}`, cedula: emp.cedula, salario: fMoneda(sb), devengado: fMoneda(dev), deducciones: fMoneda(ded), neto: fMoneda(dev - ded) }
-      })
-    }
-
-    const generarHorasExtras = () => {
-      return empleados.value.slice(0, 6).map(emp => {
-        const heD = Math.floor(Math.random() * 15)
-        const heN = Math.floor(Math.random() * 8)
-        const sb = Math.floor(Math.random() * 3000000) + 1300000
-        const vh = sb / 240
-        const total = heD * vh * 1.25 + heN * vh * 1.75
-        return { id: Date.now() + Math.random(), empleado: `${emp.nombres} ${emp.apellidos}`, cedula: emp.cedula, hd: heD, hn: heN, total: fMoneda(total) }
-      })
-    }
-
-    const generarAusencias = () => {
-      return empleados.value.filter(() => Math.random() > 0.6).map(emp => {
-        const fecha = new Date(new Date(filtros.value.fechaInicio).getTime() + Math.floor(Math.random() * ((new Date(filtros.value.fechaFin).getTime() - new Date(filtros.value.fechaInicio).getTime()) / 86400000)) * 86400000)
-        return { id: Date.now() + Math.random(), empleado: `${emp.nombres} ${emp.apellidos}`, cedula: emp.cedula, fecha: fecha.toLocaleDateString('es-CO'), tipo: Math.random() > 0.5 ? 'Enfermedad' : 'Personal', justificada: Math.random() > 0.3 ? 'Sí' : 'No' }
-      })
-    }
-
-    const exportarExcel = () => alert('Exportando reporte a Excel...')
-    const imprimirPDF = () => alert('Generando PDF del reporte...')
-
-    onMounted(() => {
-      empleados.value = [
-        { id: 1, nombres: 'Juan', apellidos: 'Pérez Gómez', cedula: '1020304050' },
-        { id: 2, nombres: 'María', apellidos: 'López Rivera', cedula: '1030405060' },
-        { id: 3, nombres: 'Carlos', apellidos: 'Rodríguez Silva', cedula: '1040506070' },
-        { id: 4, nombres: 'Ana', apellidos: 'González Martínez', cedula: '1050607080' },
-        { id: 5, nombres: 'Luis', apellidos: 'Torres Díaz', cedula: '1060708090' },
-        { id: 6, nombres: 'Patricia', apellidos: 'Ramírez Castillo', cedula: '1070809010' }
-      ]
     })
 
     return { filtros, reporteGenerado, cargando, columnas, datosReporte, empleados, hoy, generarReporte, exportarExcel, imprimirPDF }

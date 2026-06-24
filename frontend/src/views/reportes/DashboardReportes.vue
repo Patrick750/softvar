@@ -121,160 +121,156 @@
 
 <script>
 import { ref, onMounted } from 'vue'
+import api from '@/services/api'
 
 export default {
-  setup() {
+setup() {
     const metrics = ref({
-      activeEmployees: 124,
-      attendanceRate: 96.8,
-      totalOvertime: 145.5,
-      monthlyPayrollCost: 87500000
+      activeEmployees: 0,
+      attendanceRate: 0,
+      totalOvertime: 0,
+      monthlyPayrollCost: 0
     })
-
-    const chartData = {
-      workDaysLabels: ['Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May'],
-      workDaysData: [22, 20, 19, 21, 22, 21],
-      absenceData: [3, 5, 6, 4, 3, 4],
-      overtimeLabels: ['Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May'],
-      overtimeData: [120, 135, 142, 138, 150, 145.5],
-      costData: [82000000, 84500000, 86000000, 85500000, 88000000, 87500000],
-      deptLabels: ['Administrativo', 'Ventas', 'Operaciones', 'TI', 'RRHH'],
-      deptData: [35, 25, 20, 12, 8],
-      topEmployees: [
-        { name: 'Juan Pérez', hours: 28.5 },
-        { name: 'María López', hours: 25.3 },
-        { name: 'Carlos Rodríguez', hours: 22.1 },
-        { name: 'Ana Gómez', hours: 19.8 },
-        { name: 'Luis Torres', hours: 17.2 }
-      ]
-    }
 
     const formatCurrency = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(v)
     const formatHours = (v) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v) + ' hrs'
 
-    onMounted(() => {
-      setTimeout(() => {
-        const initChart = (id) => {
-          if (typeof Chart === 'undefined' || !document.getElementById(id)) return
-          return document.getElementById(id)
-        }
+    const initChart = (id) => {
+      if (typeof Chart === 'undefined' || !document.getElementById(id)) return null
+      return document.getElementById(id)
+    }
 
-        // Work Days Chart
-        const wCtx = initChart('workDaysChart')
-        if (wCtx) {
-          new Chart(wCtx, {
-            type: 'bar',
-            data: {
-              labels: chartData.workDaysLabels,
-              datasets: [
-                { label: 'Días Trabajados', data: chartData.workDaysData, backgroundColor: 'rgba(24, 95, 165, 0.8)', borderColor: '#185FA5', borderWidth: 1, borderRadius: 4 },
-                { label: 'Ausencias', data: chartData.absenceData, backgroundColor: 'rgba(163, 45, 45, 0.7)', borderColor: '#A32D2D', borderWidth: 1, borderRadius: 4 }
-              ]
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false,
-              plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, padding: 15, font: { family: "'Work Sans', sans-serif", size: 11 } } } },
-              scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
-                x: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } }
-              }
+    const renderCharts = (chartData) => {
+      // Work Days Chart
+      const wCtx = initChart('workDaysChart')
+      if (wCtx) {
+        new Chart(wCtx, {
+          type: 'bar',
+          data: {
+            labels: chartData.workDaysLabels,
+            datasets: [
+              { label: 'Días Trabajados', data: chartData.workDaysData, backgroundColor: 'rgba(24, 95, 165, 0.8)', borderColor: '#185FA5', borderWidth: 1, borderRadius: 4 },
+              { label: 'Ausencias', data: chartData.absenceData, backgroundColor: 'rgba(163, 45, 45, 0.7)', borderColor: '#A32D2D', borderWidth: 1, borderRadius: 4 }
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, padding: 15, font: { family: "'Work Sans', sans-serif", size: 11 } } } },
+            scales: {
+              y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
+              x: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } }
             }
-          })
-        }
+          }
+        })
+      }
 
-        // Overtime & Cost Chart
-        const oCtx = initChart('overtimeCostChart')
-        if (oCtx) {
-          new Chart(oCtx, {
-            type: 'line',
-            data: {
-              labels: chartData.overtimeLabels,
-              datasets: [
-                { label: 'Horas Extras', data: chartData.overtimeData, borderColor: '#3B6D11', backgroundColor: 'transparent', tension: 0.4, pointBackgroundColor: '#3B6D11', pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y' },
-                { label: 'Costo Nómina (Millones COP)', data: chartData.costData.map(v => v / 1000000), borderColor: '#185FA5', backgroundColor: 'transparent', tension: 0.4, pointBackgroundColor: '#185FA5', pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y1' }
-              ]
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false,
-              interaction: { intersect: false, mode: 'index' },
-              plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, padding: 15, font: { family: "'Work Sans', sans-serif", size: 11 } } } },
-              scales: {
-                y: { type: 'linear', position: 'left', title: { display: true, text: 'Horas', font: { family: "'Work Sans', sans-serif", size: 11 } }, grid: { drawOnChartArea: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
-                y1: { type: 'linear', position: 'right', title: { display: true, text: 'Millones COP', font: { family: "'Work Sans', sans-serif", size: 11 } }, grid: { drawOnChartArea: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
-                x: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } }
-              }
+      // Overtime & Cost Chart
+      const oCtx = initChart('overtimeCostChart')
+      if (oCtx) {
+        new Chart(oCtx, {
+          type: 'line',
+          data: {
+            labels: chartData.overtimeLabels,
+            datasets: [
+              { label: 'Horas Extras', data: chartData.overtimeData, borderColor: '#3B6D11', backgroundColor: 'transparent', tension: 0.4, pointBackgroundColor: '#3B6D11', pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y' },
+              { label: 'Costo Nómina (Millones COP)', data: chartData.costData.map(v => v / 1000000), borderColor: '#185FA5', backgroundColor: 'transparent', tension: 0.4, pointBackgroundColor: '#185FA5', pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y1' }
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, padding: 15, font: { family: "'Work Sans', sans-serif", size: 11 } } } },
+            scales: {
+              y: { type: 'linear', position: 'left', title: { display: true, text: 'Horas', font: { family: "'Work Sans', sans-serif", size: 11 } }, grid: { drawOnChartArea: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
+              y1: { type: 'linear', position: 'right', title: { display: true, text: 'Millones COP', font: { family: "'Work Sans', sans-serif", size: 11 } }, grid: { drawOnChartArea: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
+              x: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } }
             }
-          })
-        }
+          }
+        })
+      }
 
-        // Department Chart
-        const dCtx = initChart('deptChart')
-        if (dCtx) {
-          new Chart(dCtx, {
-            type: 'doughnut',
-            data: {
-              labels: chartData.deptLabels,
-              datasets: [{
-                data: chartData.deptData,
-                backgroundColor: ['rgba(24, 95, 165, 0.85)', 'rgba(99, 153, 34, 0.85)', 'rgba(55, 138, 222, 0.7)', 'rgba(181, 212, 244, 0.9)', 'rgba(44, 62, 80, 0.7)'],
-                borderColor: 'white',
-                borderWidth: 3,
-                hoverOffset: 8
-              }]
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false,
-              cutout: '60%',
-              plugins: {
-                legend: { position: 'right', labels: { boxWidth: 12, padding: 12, font: { family: "'Work Sans', sans-serif", size: 11 }, usePointStyle: true } },
-                tooltip: {
-                  callbacks: {
-                    label: function(ctx) {
-                      const total = ctx.dataset.data.reduce((a, b) => a + b, 0)
-                      return ctx.label + ': ' + ((ctx.parsed / total) * 100).toFixed(1) + '%'
-                    }
+      // Department Chart
+      const dCtx = initChart('deptChart')
+      if (dCtx) {
+        new Chart(dCtx, {
+          type: 'doughnut',
+          data: {
+            labels: chartData.deptLabels,
+            datasets: [{
+              data: chartData.deptData,
+              backgroundColor: ['rgba(24, 95, 165, 0.85)', 'rgba(99, 153, 34, 0.85)', 'rgba(55, 138, 222, 0.7)', 'rgba(181, 212, 244, 0.9)', 'rgba(44, 62, 80, 0.7)'],
+              borderColor: 'white',
+              borderWidth: 3,
+              hoverOffset: 8
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+              legend: { position: 'right', labels: { boxWidth: 12, padding: 12, font: { family: "'Work Sans', sans-serif", size: 11 }, usePointStyle: true } },
+              tooltip: {
+                callbacks: {
+                  label: function(ctx) {
+                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0)
+                    return ctx.label + ': ' + ((ctx.parsed / total) * 100).toFixed(1) + '%'
                   }
                 }
               }
             }
-          })
-        }
+          }
+        })
+      }
 
-        // Top Overtime Chart
-        const tCtx = initChart('topOvertimeChart')
-        if (tCtx) {
-          new Chart(tCtx, {
-            type: 'bar',
-            data: {
-              labels: chartData.topEmployees.map(e => e.name),
-              datasets: [{
-                label: 'Horas Extras',
-                data: chartData.topEmployees.map(e => e.hours),
-                backgroundColor: 'rgba(255, 193, 7, 0.7)',
-                borderColor: '#FFC107',
-                borderWidth: 1,
-                borderRadius: 4
-              }]
+      // Top Overtime Chart
+      const tCtx = initChart('topOvertimeChart')
+      if (tCtx && chartData.topEmployees.length > 0) {
+        new Chart(tCtx, {
+          type: 'bar',
+          data: {
+            labels: chartData.topEmployees.map(e => e.name),
+            datasets: [{
+              label: 'Horas Extras',
+              data: chartData.topEmployees.map(e => e.hours),
+              backgroundColor: 'rgba(255, 193, 7, 0.7)',
+              borderColor: '#FFC107',
+              borderWidth: 1,
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => ctx.parsed + ' hrs' } }
             },
-            options: {
-              responsive: true, maintainAspectRatio: false,
-              indexAxis: 'y',
-              plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: ctx => ctx.parsed + ' hrs' } }
-              },
-              scales: {
-                x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
-                y: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 10 } } }
-              }
+            scales: {
+              x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { family: "'Work Sans', sans-serif", size: 11 } } },
+              y: { grid: { display: false }, ticks: { font: { family: "'Work Sans', sans-serif", size: 10 } } }
             }
-          })
-        }
-      }, 150)
+          }
+        })
+      }
+    }
+
+    onMounted(async () => {
+      try {
+        const response = await api.get('/reportes/dashboard/')
+        metrics.value = response.data.metrics
+        
+        // Wait for DOM to be ready for charts
+        setTimeout(() => {
+          renderCharts(response.data.chartData)
+        }, 150)
+      } catch (error) {
+        console.error("Error cargando dashboard:", error)
+      }
     })
 
     return { metrics, formatCurrency, formatHours }
   }
+
 }
 </script>
 

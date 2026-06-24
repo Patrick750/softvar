@@ -10,7 +10,7 @@ class EmpleadoAPITest(TestCase):
         self.client = APIClient()
         # Create a superuser for authentication
         self.admin_user = User.objects.create_superuser(
-            username='admin',
+            username='admin_rrhh',
             email='admin@example.com',
             password='adminpass'
         )
@@ -74,3 +74,11 @@ class EmpleadoAPITest(TestCase):
         # Check that it prevents duplicate generation
         response_dup = self.client.post(url, data, format='json')
         self.assertEqual(response_dup.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_dashboard_reportes(self):
+        """Test the dashboard report API"""
+        url = reverse('reportes-dashboard')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('metrics', response.data)
+        self.assertIn('chartData', response.data)

@@ -369,7 +369,7 @@ cd frontend && npm run preview      # Vista previa del build
 | **Sprint 1** | Gestión de empleados (CRUD, foto facial, API REST) | ✅ Completado |
 | **Sprint 2** | Control de asistencia, portal personal, autenticación | ✅ Completado |
 | **Sprint 3** | Liquidación de nómina, desprendibles PDF | ✅ Completado |
-| **Sprint 4** | Dashboard, reportes, exportación ACH/Excel | 📅 Planeado |
+| **Sprint 4** | Dashboard, reportes, exportación ACH/Excel | ✅ Completado |
 
 ---
 

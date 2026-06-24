@@ -6,7 +6,8 @@ from .views import (
     asistencias_pendientes_view, aprobar_asistencia_view,
     configuracion_parametros_view, auditoria_logs_view,
     get_mi_perfil_view, cambiar_contrasena_view,
-    recuperar_contrasena_view, NominaViewSet
+    recuperar_contrasena_view, NominaViewSet,
+    dashboard_reportes_view, generar_reporte_view
 )
 
 router = DefaultRouter()
@@ -25,6 +26,9 @@ urlpatterns = [
     path('asistencia/aprobar/', aprobar_asistencia_view, name='asistencia-aprobar'),
     path('configuracion/parametros/', configuracion_parametros_view, name='configuracion-parametros'),
     path('auditoria/logs/', auditoria_logs_view, name='auditoria-logs'),
+    
+    path('reportes/dashboard/', dashboard_reportes_view, name='reportes-dashboard'),
+    path('reportes/generar/', generar_reporte_view, name='reportes-generar'),
     
     path('empleados/me/', get_mi_perfil_view, name='empleado-me'),
     path('', include(router.urls)),
