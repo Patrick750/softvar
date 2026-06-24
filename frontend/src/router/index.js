@@ -110,6 +110,12 @@ router.beforeEach((to, from, next) => {
   const isAuthenticated = localStorage.getItem('token') !== null
   const userRole = localStorage.getItem('userRole') || 'ADMIN_RRHH' // Default for dev
 
+  // Redirect logged-in users away from auth pages
+  if ((to.name === 'login' || to.name === 'reset-password') && isAuthenticated) {
+    next({ name: 'home' })
+    return
+  }
+
   // Avoid infinite redirect loops
   if (to.meta.requiresAuth && !isAuthenticated) {
     // Redirect to login only if we're not already going to login or reset-password
