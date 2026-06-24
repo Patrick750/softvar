@@ -489,13 +489,19 @@ export default {
         const resData = err.response?.data
         
         if (resData) {
+          const isValidationError = ['DUPLICADO', 'FALTA_ENTRADA', 'FUERA_DE_HORARIO'].includes(resData.status)
           const detailsMsg = resData.message || `GPS_OK: ${resData.gps_ok ? 'Sí' : 'No'} | Facial_OK: ${resData.face_ok ? 'Sí' : 'No'}`
+          
           Object.assign(verificationState, {
             show: true,
-            message: 'Verificación automática fallida',
+            message: isValidationError ? 'Registro no permitido' : 'Verificación automática fallida',
             details: detailsMsg,
-            type: 'warning'
+            type: isValidationError ? 'error' : 'warning'
           })
+          
+          if (!isValidationError) {
+            showManualForm.value = true
+          }
         } else {
           Object.assign(verificationState, {
             show: true,
@@ -503,8 +509,8 @@ export default {
             details: 'Ocurrió un error al enviar los datos al servidor.',
             type: 'error'
           })
+          showManualForm.value = true
         }
-        showManualForm.value = true
       } finally {
         isProcessing.value = false
       }

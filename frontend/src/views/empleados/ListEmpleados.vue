@@ -462,6 +462,8 @@ export default {
     }
 
     const eliminarEmpleado = async (id) => {
+      if (!confirm('¿Está seguro de que desea inactivar este empleado?')) return
+      
       try {
         await axios.delete(`/api/empleados/${id}/`)
         fetchEmpleados()
