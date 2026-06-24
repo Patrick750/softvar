@@ -18,6 +18,8 @@ import os
 from email.mime.text import MIMEText
 
 
+from rest_framework_simplejwt.tokens import RefreshToken
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -26,7 +28,7 @@ def login_view(request):
     """
     Endpoint de inicio de sesión.
     Autentica al usuario usando email y contraseña,
-    crea una sesión y devuelve los datos del usuario.
+    crea un JWT y devuelve los datos del usuario.
     """
     email = request.data.get('email', '').strip()
     password = request.data.get('password', '')
@@ -61,8 +63,8 @@ def login_view(request):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    # Crear sesión
-    login(request, user)
+    # Crear token JWT
+    refresh = RefreshToken.for_user(user)
 
     # Determinar el rol del usuario (primer grupo asignado o por username)
     groups = list(user.groups.values_list('name', flat=True))
@@ -79,6 +81,8 @@ def login_view(request):
         rol = role_map.get(user.username, 'EMPLEADO')
 
     return Response({
+        'token': str(refresh.access_token),
+        'refresh': str(refresh),
         'id': user.id,
         'username': user.username,
         'email': user.email,

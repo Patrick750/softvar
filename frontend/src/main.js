@@ -5,9 +5,18 @@ import axios from 'axios'
 import './assets/styles/main.css'
 
 // Configure Axios Defaults
-axios.defaults.withCredentials = true
-axios.defaults.xsrfCookieName = 'csrftoken'
-axios.defaults.xsrfHeaderName = 'X-CSRFToken'
+axios.defaults.withCredentials = false // Now using JWT, no cookies needed
+
+// Request Interceptor: Attach JWT token
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+}, (error) => {
+  return Promise.reject(error)
+})
 
 axios.interceptors.response.use(
   (response) => response,

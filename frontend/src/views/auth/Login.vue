@@ -243,16 +243,11 @@ export default {
       loading.value = true
 
       try {
-        await fetch('/api/auth/csrf/', { credentials: 'include' })
-        const csrfToken = getCookie('csrftoken')
-
         const response = await fetch('/api/auth/login/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken || '',
           },
-          credentials: 'include',
           body: JSON.stringify({
             email: form.value.email,
             password: form.value.password,
@@ -267,13 +262,13 @@ export default {
 
         const data = await response.json()
 
-        localStorage.setItem('token', 'session-' + Date.now())
+        localStorage.setItem('token', data.token) // Real JWT token
         localStorage.setItem('userRole', data.rol)
         localStorage.setItem('userName', data.nombre)
         localStorage.setItem('userEmail', data.email)
         localStorage.setItem('userId', data.id)
 
-        const redirectTo = route.query.redirect || '/empleados'
+        const redirectTo = route.query.redirect || '/'
         router.push(redirectTo)
       } catch (err) {
         error.value = 'Error de conexión con el servidor. Verifique que el backend esté corriendo.'

@@ -323,7 +323,7 @@ export default {
       }
       loadingModels.value = true
       const promise = (async () => {
-        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'
+        const MODEL_URL = '/models/'
         await Promise.all([
           window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
           window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
