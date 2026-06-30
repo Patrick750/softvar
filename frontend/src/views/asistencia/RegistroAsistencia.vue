@@ -323,7 +323,7 @@ export default {
       }
       loadingModels.value = true
       const promise = (async () => {
-        const MODEL_URL = '/models'
+        const MODEL_URL = 'https://unpkg.com/@vladmandic/face-api@1.7.15/model/'
         await Promise.all([
           window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
           window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
