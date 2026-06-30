@@ -429,15 +429,7 @@ export default {
             }
         }
 
-        // 2. Get Coordinates in parallel with face detection
-        let coords = null
-        try {
-          coords = await getCoordinates()
-        } catch (gpsErr) {
-          console.warn('GPS failed:', gpsErr)
-        }
-
-        // 3. Capture a single frame from the video
+        // 2. Capture a single frame from the video IMMEDIATELY
         const canvas = document.createElement('canvas')
         canvas.width = video.videoWidth || 640
         canvas.height = video.videoHeight || 480
@@ -446,19 +438,20 @@ export default {
         const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9)
         capturedImage.value = imageDataUrl
 
-        // Stop camera now
-        stopCamera()        // 4. Detect face and extract descriptor (single pass, instant)
-        // Note: withFaceLandmarks() is required BEFORE withFaceDescriptor() in @vladmandic/face-api
+        // 3. Detect face and extract descriptor (single pass, instant)
         const detection = await window.faceapi.detectSingleFace(
           canvas,
           new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
         ).withFaceLandmarks().withFaceDescriptor()
         
+        // Stop camera now that we have the image and detection
+        stopCamera()
+
         if (!detection) {
           Object.assign(verificationState, {
             show: true,
             message: 'Rostro no detectado',
-            details: 'No pudimos localizar un rostro en la captura. Intente de nuevo con buena luz y de frente a la cámara.',
+            details: 'No pudimos localizar un rostro en la captura. Asegúrese de tener buena iluminación y mirar de frente a la cámara.',
             type: 'error'
           })
           showManualForm.value = true
@@ -466,6 +459,14 @@ export default {
         }
 
         const descriptor = Array.from(detection.descriptor)
+
+        // 4. Get Coordinates (this can take some time, so do it after capturing the face)
+        let coords = null
+        try {
+          coords = await getCoordinates()
+        } catch (gpsErr) {
+          console.warn('GPS failed:', gpsErr)
+        }
 
         // 5. Send to API for verification
         const response = await axios.post('/api/asistencia/registrar/', {
