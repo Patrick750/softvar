@@ -336,7 +336,7 @@ export default {
         await promise
       } catch (err) {
         console.error('Error loading face-api models:', err)
-        addToast('Error', 'Error al cargar modelos de reconocimiento facial.', 'error')
+        addToast('Error', `Error al cargar modelos de reconocimiento facial: ${err.message || err}`, 'error')
       } finally {
         loadingModels.value = false
         modelsLoadingPromise = null
