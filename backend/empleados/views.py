@@ -589,8 +589,8 @@ def configuracion_parametros_view(request):
     Requiere rol ADMIN_SISTEMA (crear/actualizar parámetros) o ADMIN_RRHH (solo lectura).
     """
     role = get_user_role(request.user)
-    if role != 'ADMIN_SISTEMA':
-        return Response({'error': 'Solo el Administrador del Sistema puede acceder a esta configuración'}, status=status.HTTP_403_FORBIDDEN)
+    if role not in ['ADMIN_SISTEMA', 'ADMIN_RRHH']:
+        return Response({'error': 'No tiene permisos para acceder a esta configuración'}, status=status.HTTP_403_FORBIDDEN)
     if request.method == 'GET':
         params = ParametroSistema.objects.all()
         data = {p.clave: {'valor': p.valor, 'descripcion': p.descripcion} for p in params}
