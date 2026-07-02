@@ -101,6 +101,57 @@
         </div>
       </div>
 
+      <div class="grid-2" style="margin-top: 1.5rem;">
+        <!-- Horarios de Asistencia -->
+        <div class="card card-warning">
+          <div class="card-header">
+            <div class="card-header-left">
+              <span class="card-icon" style="color: #d97706; background: rgba(217,119,6,0.1);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </span>
+              <h3>Horarios de Asistencia Permitidos</h3>
+            </div>
+          </div>
+          <div class="card-body">
+            <form @submit.prevent="actualizarHorarios" class="form-grid form-grid-2">
+              <div class="form-group full-width" style="margin-bottom: 0;">
+                <label style="font-weight: 600; color: var(--color-neutral-text-secondary); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Entrada</label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Desde <span class="required">*</span></label>
+                <input type="time" v-model="horarios.entrada_inicio" required class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hasta <span class="required">*</span></label>
+                <input type="time" v-model="horarios.entrada_fin" required class="form-input">
+              </div>
+              
+              <div class="form-group full-width" style="margin-bottom: 0; margin-top: 0.5rem;">
+                <label style="font-weight: 600; color: var(--color-neutral-text-secondary); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Salida</label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Desde <span class="required">*</span></label>
+                <input type="time" v-model="horarios.salida_inicio" required class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hasta <span class="required">*</span></label>
+                <input type="time" v-model="horarios.salida_fin" required class="form-input">
+              </div>
+
+              <div class="form-group full-width mt-2">
+                <button type="submit" class="btn btn-primary btn-block" :disabled="savingHorarios" style="background-color: #d97706;">
+                  <span v-if="savingHorarios" class="spinner"></span>
+                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  {{ savingHorarios ? 'Guardando...' : 'Actualizar Horarios' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <!-- GPS Office Configuration -->
       <div class="card card-gps" style="margin-top: 1.5rem;">
         <div class="card-header">
@@ -316,11 +367,13 @@ export default {
     const savingSmmlv = ref(false)
     const savingPorcentajes = ref(false)
     const savingGps = ref(false)
+    const savingHorarios = ref(false)
     const loadingAudit = ref(false)
 
     const config = ref({ smmlv: 0 })
     const porcentajes = ref({ salud: 0, pension: 0, arl: 0 })
     const gps = ref({ latitud: 2.927300, longitud: -75.281800, radio: 100 })
+    const horarios = ref({ entrada_inicio: '06:00', entrada_fin: '10:00', salida_inicio: '15:00', salida_fin: '23:00' })
 
     const auditLogs = ref([])
     const expandedLogId = ref(null)
@@ -359,6 +412,10 @@ export default {
         if (data.OFICINA_RADIO_METROS) {
           gps.value.radio = parseFloat(data.OFICINA_RADIO_METROS.valor) || 100
         }
+        if (data.HORARIO_ENTRADA_INICIO) horarios.value.entrada_inicio = data.HORARIO_ENTRADA_INICIO.valor
+        if (data.HORARIO_ENTRADA_FIN) horarios.value.entrada_fin = data.HORARIO_ENTRADA_FIN.valor
+        if (data.HORARIO_SALIDA_INICIO) horarios.value.salida_inicio = data.HORARIO_SALIDA_INICIO.valor
+        if (data.HORARIO_SALIDA_FIN) horarios.value.salida_fin = data.HORARIO_SALIDA_FIN.valor
       } catch (err) {
         console.error('Error cargando parámetros:', err)
         addToast('Error', 'No se pudieron cargar los parámetros del sistema.', 'error')
@@ -396,6 +453,24 @@ export default {
         addToast('Error', 'No se pudieron actualizar los porcentajes.', 'error')
       } finally {
         savingPorcentajes.value = false
+      }
+    }
+
+    const actualizarHorarios = async () => {
+      savingHorarios.value = true
+      try {
+        await axios.post('/api/configuracion/parametros/', {
+          HORARIO_ENTRADA_INICIO: horarios.value.entrada_inicio,
+          HORARIO_ENTRADA_FIN: horarios.value.entrada_fin,
+          HORARIO_SALIDA_INICIO: horarios.value.salida_inicio,
+          HORARIO_SALIDA_FIN: horarios.value.salida_fin
+        })
+        addToast('Éxito', 'Horarios de asistencia actualizados correctamente.', 'success')
+      } catch (err) {
+        console.error('Error actualizando horarios:', err)
+        addToast('Error', 'No se pudieron actualizar los horarios.', 'error')
+      } finally {
+        savingHorarios.value = false
       }
     }
 
@@ -476,11 +551,11 @@ export default {
     })
 
     return {
-      loadingParams, savingSmmlv, savingPorcentajes, savingGps, loadingAudit,
-      config, porcentajes, gps,
+      loadingParams, savingSmmlv, savingPorcentajes, savingGps, savingHorarios, loadingAudit,
+      config, porcentajes, gps, horarios,
       auditLogs, expandedLogId,
       roles,
-      actualizarSMMLV, actualizarPorcentajes, actualizarGPS,
+      actualizarSMMLV, actualizarPorcentajes, actualizarGPS, actualizarHorarios,
       cargarAuditLogs, toggleAuditDetail,
       formatFechaHora, formatJsonValue, getInitials, accionBadgeClass
     }
