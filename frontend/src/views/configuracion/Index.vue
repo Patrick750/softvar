@@ -212,8 +212,8 @@
         </div>
       </div>
 
-      <!-- Audit Log Viewer -->
-      <div class="card card-audit" style="margin-top: 1.5rem;">
+      <!-- Audit Log Viewer (Solo Admin Sistema) -->
+      <div v-if="userRole === 'ADMIN_SISTEMA'" class="card card-audit" style="margin-top: 1.5rem;">
         <div class="card-header card-header-dark">
           <div class="card-header-left">
             <span class="card-icon card-icon-audit">
@@ -369,6 +369,7 @@ export default {
     const savingGps = ref(false)
     const savingHorarios = ref(false)
     const loadingAudit = ref(false)
+    const userRole = ref(localStorage.getItem('userRole') || '')
 
     const config = ref({ smmlv: 0 })
     const porcentajes = ref({ salud: 0, pension: 0, arl: 0 })
@@ -545,13 +546,15 @@ export default {
     }
 
     // --- Lifecycle ---
-    onMounted(async () => {
-      await cargarParametros()
-      cargarAuditLogs()
+    onMounted(() => {
+      cargarParametros()
+      if (userRole.value === 'ADMIN_SISTEMA') {
+        cargarAuditLogs()
+      }
     })
 
     return {
-      loadingParams, savingSmmlv, savingPorcentajes, savingGps, savingHorarios, loadingAudit,
+      loadingParams, savingSmmlv, savingPorcentajes, savingGps, savingHorarios, loadingAudit, userRole,
       config, porcentajes, gps, horarios,
       auditLogs, expandedLogId,
       roles,

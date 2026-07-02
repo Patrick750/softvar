@@ -21,8 +21,8 @@ axios.interceptors.request.use((config) => {
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      // Si la API dice "No autenticado" o "Prohibido", cerrar sesión y limpiar datos locales
+    if (error.response && error.response.status === 401) {
+      // Si la API dice "No autenticado", cerrar sesión y limpiar datos locales
       localStorage.removeItem('token')
       localStorage.removeItem('userRole')
       localStorage.removeItem('userName')
