@@ -32,7 +32,6 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
 const navItems = computed(() => {
   const role = user.value.role
   const items = [
-    { icon: 'bi-house-door', label: 'Inicio', to: '/' },
     { icon: 'bi-person-circle', label: 'Mi Portal', to: '/portal-personal' },
     { icon: 'bi-people', label: 'Empleados', to: '/empleados', roles: ['ADMIN_RRHH'] },
     { icon: 'bi-clock-history', label: 'Asistencia', to: '/asistencia', roles: ['EMPLEADO', 'ADMIN_RRHH'] },
