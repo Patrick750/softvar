@@ -849,8 +849,9 @@ class NominaViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Mes y año son requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Verificar si ya existe nómina para ese mes y año
-        if Nomina.objects.filter(mes=mes, ano=ano).exists():
-            return Response({'message': 'La nómina para este periodo ya fue generada'}, status=status.HTTP_400_BAD_REQUEST)
+        existente = Nomina.objects.filter(mes=mes, ano=ano).first()
+        if existente:
+            return Response(NominaSerializer(existente).data, status=status.HTTP_200_OK)
 
         empleados = Empleado.objects.filter(activo=True)
         if not empleados.exists():
@@ -862,12 +863,40 @@ class NominaViewSet(viewsets.ModelViewSet):
         total_devengados = 0
         total_deducciones = 0
         total_nomina = 0
+        
+        import calendar
+        mes_int = int(mes)
+        ano_int = int(ano)
+        
+        # Calcular dias habiles del mes (Lunes a Viernes)
+        _, num_days = calendar.monthrange(ano_int, mes_int)
+        dias_habiles_mes = sum(1 for day in range(1, num_days + 1) if calendar.weekday(ano_int, mes_int, day) < 5)
+
+        SMMLV = 1500000.0
+        AUXILIO_TRANSPORTE = 180000.0
 
         for empleado in empleados:
             # Obtener novedades enviadas o 0 por defecto
             emp_novedades = novedades.get(str(empleado.id), {})
             he_diurnas = int(emp_novedades.get('horas_extra_diurnas', 0))
             he_nocturnas = int(emp_novedades.get('horas_extra_nocturnas', 0))
+
+            # Contar días únicos asistidos en días hábiles
+            asistencias_exito = Asistencia.objects.filter(
+                empleado=empleado,
+                tipo='ENTRADA',
+                estado='EXITO',
+                fecha_hora__year=ano_int,
+                fecha_hora__month=mes_int
+            )
+            dias_asistidos = set()
+            for ast in asistencias_exito:
+                if ast.fecha_hora.weekday() < 5:
+                    dias_asistidos.add(ast.fecha_hora.date())
+            
+            dias_asistidos_count = len(dias_asistidos)
+            faltas = max(0, dias_habiles_mes - dias_asistidos_count)
+            dias_a_pagar = max(0, 30 - faltas)
 
             salario_base = float(empleado.salario_base)
             # Valor hora = salario_base / 240
@@ -876,10 +905,17 @@ class NominaViewSet(viewsets.ModelViewSet):
             valor_he_diurnas = he_diurnas * valor_hora * 1.25
             valor_he_nocturnas = he_nocturnas * valor_hora * 1.75
             
-            devengado = salario_base + valor_he_diurnas + valor_he_nocturnas
+            salario_proporcional = (salario_base / 30.0) * dias_a_pagar
+            base_aportes = salario_proporcional + valor_he_diurnas + valor_he_nocturnas
             
-            descuento_salud = devengado * 0.04
-            descuento_pension = devengado * 0.04
+            auxilio_transporte_pagar = 0.0
+            if salario_base <= (SMMLV * 2):
+                auxilio_transporte_pagar = (AUXILIO_TRANSPORTE / 30.0) * dias_a_pagar
+                
+            devengado = base_aportes + auxilio_transporte_pagar
+            
+            descuento_salud = base_aportes * 0.04
+            descuento_pension = base_aportes * 0.04
             total_descuento = descuento_salud + descuento_pension
             
             neto = devengado - total_descuento
