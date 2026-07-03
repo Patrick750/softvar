@@ -970,7 +970,7 @@ class NominaViewSet(viewsets.ModelViewSet):
 
         return Response({'message': 'Desprendibles enviados correctamente por correo'}, status=status.HTTP_200_OK)
 
-from django.db.models import Sum, Count, Avg
+from django.db.models import Sum, Count, Avg, F
 from django.db.models.functions import TruncMonth
 import datetime
 
@@ -1010,7 +1010,7 @@ def dashboard_reportes_view(request):
         if last_nomina:
             monthly_payroll_cost = float(last_nomina.total_nomina)
             detalles = DetalleNomina.objects.filter(nomina=last_nomina)
-            total_overtime = sum(d.horas_extras_diurnas + d.horas_extras_nocturnas for d in detalles)
+            total_overtime = sum(d.horas_extra_diurnas + d.horas_extra_nocturnas for d in detalles)
             
         # Charts Data - Mocked history blended with DB for realism if DB is empty
         months_labels = []
@@ -1039,7 +1039,7 @@ def dashboard_reportes_view(request):
         # Add real top employees in overtime if available
         if last_nomina:
             top_overtime_qs = DetalleNomina.objects.filter(nomina=last_nomina).annotate(
-                total_extras=F('horas_extras_diurnas') + F('horas_extras_nocturnas')
+                total_extras=F('horas_extra_diurnas') + F('horas_extra_nocturnas')
             ).order_by('-total_extras')[:5]
             
             for dt in top_overtime_qs:
