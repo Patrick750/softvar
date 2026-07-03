@@ -165,6 +165,7 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
+import axios from 'axios'
 
 export default {
   setup() {
@@ -227,7 +228,7 @@ export default {
       }
     }
 
-    onMounted(() => { periodo.value.mes = new Date().getMonth() + 1 })
+    onMounted(() => { periodo.value.mes = String(new Date().getMonth() + 1) })
 
     return { meses, periodo, nominaGenerada, generando, detalleNomina, resumen, periodoLabel, generarNomina, formatoMoneda, formatNumber, exportarExcel, enviarDesprendibles }
   }
@@ -238,7 +239,9 @@ export default {
 /* Page structure */
 .page-container {
   max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -279,9 +282,10 @@ export default {
 /* Grid layout */
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
   margin-bottom: 1.5rem;
+  width: 100%;
 }
 
 @media (max-width: 900px) {
@@ -294,6 +298,8 @@ export default {
   border: 1px solid var(--color-neutral-divider);
   border-radius: 12px;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 .card-success { border-top: 3px solid var(--color-secondary-700); }
@@ -439,7 +445,7 @@ export default {
 /* Summary stats */
 .summary-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -509,6 +515,8 @@ export default {
 /* Data table */
 .table-wrapper {
   overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
 }
 
 .data-table {
@@ -533,6 +541,7 @@ export default {
   font-size: 0.875rem;
   color: var(--color-neutral-text-primary);
   border-bottom: 1px solid var(--color-neutral-divider);
+  white-space: nowrap;
 }
 
 .data-row {

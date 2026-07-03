@@ -32,7 +32,6 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
 const navItems = computed(() => {
   const role = user.value.role
   const items = [
-    { icon: 'bi-house-door', label: 'Inicio', to: '/' },
     { icon: 'bi-person-circle', label: 'Mi Portal', to: '/portal-personal' },
     { icon: 'bi-people', label: 'Empleados', to: '/empleados', roles: ['ADMIN_RRHH'] },
     { icon: 'bi-clock-history', label: 'Asistencia', to: '/asistencia', roles: ['EMPLEADO', 'ADMIN_RRHH'] },
@@ -311,6 +310,9 @@ const roleBadgeClass = computed(() => {
 .app-shell {
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* === AUTH PAGE TRANSITION === */
@@ -510,6 +512,7 @@ const roleBadgeClass = computed(() => {
 /* === MAIN WRAPPER === */
 .main-wrapper {
   flex: 1;
+  min-width: 0;
   margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
@@ -687,8 +690,10 @@ const roleBadgeClass = computed(() => {
 /* === MAIN CONTENT === */
 .main-content {
   flex: 1;
+  min-width: 0;
   padding: 1.5rem;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--color-bg-page);
   animation: fade-in 0.3s ease;
 }

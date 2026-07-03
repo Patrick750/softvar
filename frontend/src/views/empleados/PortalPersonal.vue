@@ -98,7 +98,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(att, idx) in attendances" :key="att.id" class="data-row" :style="{ '--i': idx }">
+                  <tr v-for="(att, idx) in paginatedAttendances" :key="att.id" class="data-row" :style="{ '--i': idx }">
                     <td>{{ formatDateTime(att.fecha_hora) }}</td>
                     <td>
                       <span class="badge" :class="att.tipo === 'ENTRADA' ? 'badge-solid-primary' : 'badge-neutral'">
@@ -115,12 +115,20 @@
                       <span class="text-sm">{{ att.observaciones || att.justificacion_manual || '-' }}</span>
                     </td>
                   </tr>
-                  <tr v-if="!attendances.length" class="empty-row">
+                  <tr v-if="!paginatedAttendances.length" class="empty-row">
                     <td colspan="4" class="text-center text-muted py-4">No hay registros de asistencia</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            <!-- Controles de Paginación -->
+            <div v-if="totalPages > 1" class="flex-row gap-sm mt-3" style="justify-content: center; align-items: center;">
+              <button class="btn btn-sm btn-outline" @click="prevPage" :disabled="currentPage === 1">Anterior</button>
+              <span class="text-muted text-sm mx-3">Página {{ currentPage }} de {{ totalPages }}</span>
+              <button class="btn btn-sm btn-outline" @click="nextPage" :disabled="currentPage === totalPages">Siguiente</button>
+            </div>
+
           </div>
         </div>
 
@@ -159,7 +167,7 @@
 </template>
 
 <script>
-import { ref, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import axios from 'axios'
 
 export default {
@@ -178,6 +186,28 @@ export default {
     const editing = ref(false)
     const editedEmployee = ref({ nombres: '', apellidos: '', telefono: '' })
     const saving = ref(false)
+
+    // Pagination state
+    const currentPage = ref(1)
+    const itemsPerPage = ref(5)
+
+    const paginatedAttendances = computed(() => {
+      const start = (currentPage.value - 1) * itemsPerPage.value
+      const end = start + itemsPerPage.value
+      return attendances.value.slice(start, end)
+    })
+
+    const totalPages = computed(() => {
+      return Math.ceil(attendances.value.length / itemsPerPage.value) || 1
+    })
+
+    const nextPage = () => {
+      if (currentPage.value < totalPages.value) currentPage.value++
+    }
+
+    const prevPage = () => {
+      if (currentPage.value > 1) currentPage.value--
+    }
 
     const loadData = async () => {
       loading.value = true
@@ -258,6 +288,8 @@ export default {
       } else {
         attendances.value = [...rawAttendances.value]
       }
+      
+      currentPage.value = 1 // Reset pagination on filter change
     }
 
     const filtrarHoy = () => applyFilter('hoy')
@@ -343,7 +375,12 @@ export default {
       mostrarTodos,
       getProfilePhoto,
       formatDate,
-      formatDateTime
+      formatDateTime,
+      currentPage,
+      totalPages,
+      paginatedAttendances,
+      nextPage,
+      prevPage
     }
   }
 }
