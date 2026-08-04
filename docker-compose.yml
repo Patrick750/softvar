@@ -1,0 +1,66 @@
+services:
+  backend:
+    container_name: softvar-backend
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    image: patrick190/softvar-backend:latest
+    expose:
+    - "8000"
+    env_file:
+      - .env
+    networks:
+      - softvar
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  frontend:
+    container_name: softvar-frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: patrick190/softvar-frontend:latest
+    networks:
+      - softvar
+    depends_on:
+      - backend
+    restart: always
+    expose: 
+      - "80"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  db_softvar:
+    image: postgres:15-alpine
+    container_name: db-softvar
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    env_file:
+      - .env
+    volumes:
+      - softvar_db:/var/lib/postgresql/data
+    networks:
+      - softvar
+
+
+networks:
+  softvar:
+    external: true
+    name: proxy-network
+  
+
+volumes:
+  softvar_db:
