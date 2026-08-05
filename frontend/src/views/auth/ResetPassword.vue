@@ -76,14 +76,15 @@
 
 <script>
 import { ref } from 'vue'
+import axios from 'axios'
 
 export default {
   setup() {
     const form = ref({ email: '' })
     const loading = ref(false)
+    const errorMsg = ref('')
     const success = ref(false)
     const message = ref('')
-    const errorMsg = ref('')
 
     function getCookie(name) {
       const value = `; ${document.cookie}`
@@ -97,32 +98,26 @@ export default {
       errorMsg.value = ''
 
       try {
-        await fetch('/api/auth/csrf/', { credentials: 'include' })
+        await axios.get('/api/auth/csrf/')
         const csrfToken = getCookie('csrftoken')
 
-        const response = await fetch('/api/auth/recuperar-contrasena/', {
-          method: 'POST',
+        const response = await axios.post('/api/auth/recuperar-contrasena/', {
+          email: form.value.email,
+        }, {
           headers: {
-            'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken || '',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            email: form.value.email,
-          }),
+          }
         })
 
-        const data = await response.json()
-
-        if (!response.ok) {
-          errorMsg.value = data.error || 'Error al procesar la solicitud.'
-          return
-        }
-
+        const data = response.data
         success.value = true
         message.value = data.message || 'Correo enviado exitosamente.'
       } catch (err) {
-        errorMsg.value = 'Error de conexión con el servidor. Verifique que el backend esté corriendo.'
+        if (err.response && err.response.data && err.response.data.error) {
+          errorMsg.value = err.response.data.error
+        } else {
+          errorMsg.value = 'Error de conexión con el servidor. Verifique que el backend esté corriendo.'
+        }
         console.error('Reset password error:', err)
       } finally {
         loading.value = false

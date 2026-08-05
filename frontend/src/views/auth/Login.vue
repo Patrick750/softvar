@@ -220,6 +220,7 @@
 <script>
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import axios from 'axios'
 
 export default {
   setup() {
@@ -243,24 +244,12 @@ export default {
       loading.value = true
 
       try {
-        const response = await fetch('/api/auth/login/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: form.value.email,
-            password: form.value.password,
-          }),
+        const response = await axios.post('/api/auth/login/', {
+          email: form.value.email,
+          password: form.value.password,
         })
 
-        if (!response.ok) {
-          const data = await response.json()
-          error.value = data.error || 'Correo electrónico o contraseña incorrectos'
-          return
-        }
-
-        const data = await response.json()
+        const data = response.data
 
         localStorage.setItem('token', data.token) // Real JWT token
         localStorage.setItem('userRole', data.rol)
@@ -271,7 +260,11 @@ export default {
         const redirectTo = route.query.redirect || '/'
         router.push(redirectTo)
       } catch (err) {
-        error.value = 'Error de conexión con el servidor. Verifique que el backend esté corriendo.'
+        if (err.response && err.response.data && err.response.data.error) {
+          error.value = err.response.data.error
+        } else {
+          error.value = 'Error de conexión con el servidor. Verifique que el backend esté corriendo.'
+        }
         console.error('Login error:', err)
       } finally {
         loading.value = false
