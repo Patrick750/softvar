@@ -5,6 +5,7 @@ import axios from 'axios'
 import './assets/styles/main.css'
 
 // Configure Axios Defaults
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || ''
 axios.defaults.withCredentials = false // Now using JWT, no cookies needed
 
 // Request Interceptor: Attach JWT token
