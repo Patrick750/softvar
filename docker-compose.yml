@@ -30,8 +30,8 @@ services:
     depends_on:
       - backend
     restart: always
-    expose: 
-      - "80"
+    ports: 
+      - "80:80"
     deploy:
       resources:
         limits:
