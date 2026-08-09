@@ -442,12 +442,16 @@ export default {
 <style scoped>
 .apex-portal-container {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .portal-two-columns {
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
 }
 
 @media (max-width: 1024px) {
@@ -460,6 +464,8 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Apex Card */
@@ -469,6 +475,9 @@ export default {
   padding: 1.5rem;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   border: 1px solid #EAEFEF;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .apex-card-title {
@@ -476,6 +485,7 @@ export default {
   font-weight: 700;
   color: #101828;
   margin-bottom: 1.25rem;
+  word-break: break-word;
 }
 
 /* Profile Hero */
@@ -485,6 +495,7 @@ export default {
   align-items: center;
   text-align: center;
   margin-bottom: 1.25rem;
+  width: 100%;
 }
 
 .profile-avatar-container {
@@ -508,23 +519,32 @@ export default {
   font-weight: 700;
 }
 
+.profile-identity {
+  width: 100%;
+}
+
 .user-fullname {
   font-size: 1.35rem;
   font-weight: 700;
   color: #101828;
   margin-bottom: 0.2rem;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .user-jobtitle {
   font-size: 0.9rem;
   color: #64748B;
   margin-bottom: 0.15rem;
+  word-break: break-word;
 }
 
 .user-email-text {
   font-size: 0.85rem;
   color: #64748B;
   margin-bottom: 0.75rem;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .status-active-badge {
@@ -546,6 +566,7 @@ export default {
 .profile-button-group {
   display: flex;
   gap: 0.75rem;
+  width: 100%;
 }
 
 .btn-apex-primary {
@@ -559,6 +580,7 @@ export default {
   cursor: pointer;
   transition: background 0.2s;
   flex: 1;
+  text-align: center;
 }
 
 .btn-apex-primary:hover {
@@ -576,6 +598,7 @@ export default {
   cursor: pointer;
   transition: all 0.2s;
   flex: 1;
+  text-align: center;
 }
 
 .btn-apex-outline:hover {
@@ -591,6 +614,7 @@ export default {
   padding-top: 1rem;
   border-top: 1px solid #F2F4F7;
   font-size: 0.875rem;
+  width: 100%;
 }
 
 .detail-item {
@@ -598,6 +622,12 @@ export default {
   justify-content: space-between;
   margin-bottom: 0.5rem;
   color: #475467;
+  gap: 0.5rem;
+}
+
+.detail-item strong {
+  word-break: break-word;
+  text-align: right;
 }
 
 /* Security Card */
@@ -612,12 +642,18 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  width: 100%;
 }
 
 .form-btn-row {
   display: flex;
   gap: 0.75rem;
   margin-top: 0.5rem;
+  width: 100%;
+}
+
+.apex-form-group {
+  width: 100%;
 }
 
 .apex-form-label {
@@ -638,6 +674,7 @@ export default {
   color: #101828;
   outline: none;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .apex-input:focus {
@@ -677,6 +714,7 @@ export default {
 .filter-pill-group {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .filter-pill {
@@ -698,11 +736,14 @@ export default {
 
 /* Apex Table */
 .apex-table-container {
+  width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .apex-table {
   width: 100%;
+  min-width: 560px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -714,6 +755,7 @@ export default {
   font-weight: 600;
   color: #475467;
   border-bottom: 1px solid #EAECF0;
+  white-space: nowrap;
 }
 
 .apex-table td {
@@ -729,6 +771,7 @@ export default {
   align-items: center;
   gap: 0.75rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .user-cell-avatar {
@@ -743,6 +786,7 @@ export default {
   font-weight: 700;
   font-size: 0.85rem;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .user-cell-img {
@@ -758,6 +802,7 @@ export default {
   font-size: 0.8rem;
   font-weight: 600;
   text-align: center;
+  white-space: nowrap;
 }
 
 .status-present {
@@ -786,5 +831,61 @@ export default {
 .page-count-text {
   font-size: 0.85rem;
   color: #64748B;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 576px) {
+  .apex-card {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
+  .attendance-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .filter-pill-group {
+    width: 100%;
+  }
+
+  .profile-button-group {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-btn-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .btn-apex-primary,
+  .btn-apex-outline {
+    width: 100%;
+  }
+
+  .user-fullname {
+    font-size: 1.15rem;
+  }
+
+  .extended-details-panel {
+    font-size: 0.8rem;
+  }
+
+  .detail-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+
+  .detail-item strong {
+    text-align: left;
+  }
+
+  .apex-pagination {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 }
 </style>
