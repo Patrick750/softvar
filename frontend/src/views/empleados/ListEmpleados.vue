@@ -177,7 +177,7 @@
       <div v-for="empleado in paginatedEmpleados" :key="empleado.id">
         <EmpleadoCard
           :empleado="empleado"
-          @empleado-eliminado="eliminarEmpleado"
+          @empleado-eliminado="solicitarEliminacion"
         />
       </div>
     </div>
@@ -246,7 +246,7 @@
               :key="empleado.id"
               :empleado="empleado"
               :index="index"
-              @eliminar="eliminarEmpleado"
+              @eliminar="solicitarEliminacion"
             />
           </tbody>
         </table>
@@ -303,19 +303,33 @@
         </select>
       </div>
     </div>
+
+    <!-- Confirm Delete Modal Component -->
+    <ConfirmDeleteModal
+      :show="showDeleteModal"
+      :empleado="selectedEmpleadoToDelete"
+      :loading="deletingEmpleado"
+      @confirm="ejecutarEliminacion"
+      @close="showDeleteModal = false"
+    />
   </div>
 </template>
 
 <script>
 import EmpleadoCard from '@/components/empleados/EmpleadoCard.vue'
 import EmpleadoTableRow from '@/components/empleados/EmpleadoTableRow.vue'
-import { ref, computed, onMounted, watch } from 'vue'
+import ConfirmDeleteModal from '@/components/empleados/ConfirmDeleteModal.vue'
+import { ref, computed, onMounted, watch, inject } from 'vue'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 
 export default {
-  components: { EmpleadoCard, EmpleadoTableRow },
+  components: { EmpleadoCard, EmpleadoTableRow, ConfirmDeleteModal },
   setup() {
+    const addToast = inject('addToast', () => {})
+    const showDeleteModal = ref(false)
+    const selectedEmpleadoToDelete = ref(null)
+    const deletingEmpleado = ref(false)
     const empleados = ref([])
     const loading = ref(true)
     const searchQuery = ref('')
@@ -461,14 +475,25 @@ export default {
       }
     }
 
-    const eliminarEmpleado = async (id) => {
-      if (!confirm('¿Está seguro de que desea inactivar este empleado?')) return
-      
+    const solicitarEliminacion = (emp) => {
+      selectedEmpleadoToDelete.value = emp
+      showDeleteModal.value = true
+    }
+
+    const ejecutarEliminacion = async () => {
+      if (!selectedEmpleadoToDelete.value) return
+      deletingEmpleado.value = true
       try {
-        await axios.delete(`/api/empleados/${id}/`)
+        await axios.delete(`/api/empleados/${selectedEmpleadoToDelete.value.id}/`)
+        addToast('Empleado eliminado', 'El empleado ha sido inactivado correctamente.', 'success')
+        showDeleteModal.value = false
+        selectedEmpleadoToDelete.value = null
         fetchEmpleados()
       } catch (error) {
         console.error('Error deleting empleado:', error)
+        addToast('Error', 'No se pudo eliminar el empleado.', 'error')
+      } finally {
+        deletingEmpleado.value = false
       }
     }
 
@@ -543,13 +568,17 @@ export default {
       sortDirection,
       currentPage,
       pageSize,
+      showDeleteModal,
+      selectedEmpleadoToDelete,
+      deletingEmpleado,
       uniqueCargos,
       sortedEmpleados,
       totalPages,
       paginatedEmpleados,
       visiblePages,
       toggleSort,
-      eliminarEmpleado,
+      solicitarEliminacion,
+      ejecutarEliminacion,
       clearFilters,
       exportToExcel
     }

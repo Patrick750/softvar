@@ -179,12 +179,9 @@ const roleBadgeClass = computed(() => {
         }"
       >
         <div class="sidebar-brand">
-          <div class="brand-icon">
-            <i class="bi bi-triangle-fill" style="transform: rotate(90deg); font-size: 1rem;"></i>
-          </div>
           <Transition name="fade" mode="out-in">
             <span v-if="!sidebarCollapsed || isMobile" class="brand-text" key="text">
-              Apex HRM
+              SoftVar
             </span>
           </Transition>
         </div>
@@ -243,11 +240,6 @@ const roleBadgeClass = computed(() => {
           </div>
 
           <div class="header-right">
-            <!-- Notification bell with badge -->
-            <button class="header-icon-btn" data-tooltip="Notificaciones">
-              <i class="bi bi-bell"></i>
-              <span class="notification-badge-count">3</span>
-            </button>
 
             <!-- User profile dropdown trigger -->
             <div class="user-dropdown">

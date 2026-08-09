@@ -81,10 +81,8 @@ export default {
       }
     }
 
-    const eliminarEmpleado = (id) => {
-      if (confirm('¿Está seguro de eliminar este empleado?')) {
-        emit('eliminar', id)
-      }
+    const eliminarEmpleado = () => {
+      emit('eliminar', props.empleado)
     }
 
     return { getInitials, getProfilePhoto, eliminarEmpleado }

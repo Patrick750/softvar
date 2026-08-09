@@ -86,10 +86,8 @@ export default {
       return tipos[tipo] || tipo
     }
 
-    const eliminarEmpleado = (id) => {
-      if (confirm('¿Está seguro de eliminar este empleado?')) {
-        emit('empleado-eliminado', id)
-      }
+    const eliminarEmpleado = () => {
+      emit('empleado-eliminado', props.empleado)
     }
 
     const getProfilePhoto = () => {
