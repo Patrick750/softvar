@@ -784,7 +784,21 @@ body {
   opacity: 0;
 }
 
-/* === RESPONSIVE === */
+/* === RESPONSIVE SHELL === */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .welcome-heading {
+    font-size: 1.3rem;
+  }
+
+  .app-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .main-content {
+    padding: 1.25rem;
+  }
+}
+
 @media (max-width: 767px) {
   .sidebar {
     left: -100%;
@@ -801,10 +815,19 @@ body {
   }
 
   .app-header {
-    padding: 0 1rem;
+    padding: 0.85rem 1rem;
+    min-height: 64px;
+  }
+
+  .welcome-heading {
+    font-size: 1.15rem;
   }
 
   .user-dropdown-info {
+    display: none;
+  }
+
+  .user-dropdown-name {
     display: none;
   }
 

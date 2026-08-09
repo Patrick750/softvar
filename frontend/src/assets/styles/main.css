@@ -1075,23 +1075,25 @@ h4 { font-size: 1.125rem; }
 .stagger-children > *:nth-child(5) { animation-delay: 240ms; }
 .stagger-children > *:nth-child(6) { animation-delay: 300ms; }
 
-/* === 24. RESPONSIVE === */
-@media (max-width: 768px) {
-  .grid-2, .grid-3, .grid-4 {
-    grid-template-columns: 1fr;
+/* === 24. RESPONSIVE DESIGN SYSTEM === */
+/* Tablet Breakpoint (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .flex-row {
-    flex-direction: column;
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .stat-card-value {
-    font-size: 1.5rem;
+  .page-header {
+    flex-wrap: wrap;
+    gap: 1rem;
   }
 
-  .page-header-actions {
-    flex-direction: column;
-    align-items: flex-start;
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .card-body {
@@ -1099,9 +1101,80 @@ h4 { font-size: 1.125rem; }
   }
 }
 
+/* Mobile Breakpoint (<768px) */
+@media (max-width: 767px) {
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .flex-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .stat-card-value {
+    font-size: 1.5rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .page-header-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .card-body {
+    padding: 1rem;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -1rem;
+    padding: 0 1rem;
+  }
+
+  .table {
+    min-width: 600px;
+  }
+
+  /* Form inputs touch friendly size */
+  .form-input, .form-select, .btn {
+    min-height: 42px;
+  }
+
+  /* Modal responsiveness */
+  .modal-dialog {
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 0.5rem auto;
+    padding: 1rem !important;
+  }
+}
+
+/* Small Mobile Breakpoint (<480px) */
 @media (max-width: 480px) {
   .toast {
     min-width: unset;
     max-width: calc(100vw - 2rem);
+  }
+
+  h1 { font-size: 1.35rem; }
+  h2 { font-size: 1.2rem; }
+  h3 { font-size: 1.1rem; }
+
+  .display-heading {
+    font-size: 1.5rem;
   }
 }
