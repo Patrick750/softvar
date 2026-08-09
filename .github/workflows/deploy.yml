@@ -44,6 +44,7 @@ jobs:
 
                 script: |
                     cd ~/softvar
+                    git fetch
                     git checkout Rediseño
                     git pull origin Rediseño
                     docker compose pull
