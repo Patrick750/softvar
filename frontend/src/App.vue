@@ -50,10 +50,23 @@ const getInitials = (name) => {
 }
 
 const user = ref({
-  name: localStorage.getItem('userName') || 'Administrador',
+  name: localStorage.getItem('userName') || 'Alex Reed',
   role: localStorage.getItem('userRole') || 'ADMIN_RRHH',
-  email: localStorage.getItem('userEmail') || 'admin@empresa.com',
-  initials: getInitials(localStorage.getItem('userName')) || 'AD'
+  email: localStorage.getItem('userEmail') || 'alex.reed@apex.io',
+  initials: getInitials(localStorage.getItem('userName')) || 'AR'
+})
+
+const userFirstName = computed(() => {
+  const full = user.value.name || 'Alex'
+  return full.split(' ')[0]
+})
+
+const userShortName = computed(() => {
+  const parts = (user.value.name || 'Alex Reed').split(' ')
+  if (parts.length > 1) {
+    return `${parts[0]} ${parts[1].charAt(0)}.`
+  }
+  return parts[0]
 })
 
 const userDropdownOpen = ref(false)
@@ -101,10 +114,10 @@ provide('addToast', addToast)
 watch(() => route.path, () => {
   const name = localStorage.getItem('userName')
   user.value = {
-    name: name || 'Administrador',
+    name: name || 'Alex Reed',
     role: localStorage.getItem('userRole') || 'ADMIN_RRHH',
-    email: localStorage.getItem('userEmail') || '',
-    initials: getInitials(name) || 'AD'
+    email: localStorage.getItem('userEmail') || 'alex.reed@apex.io',
+    initials: getInitials(name) || 'AR'
   }
 })
 
@@ -167,11 +180,11 @@ const roleBadgeClass = computed(() => {
       >
         <div class="sidebar-brand">
           <div class="brand-icon">
-            <i class="bi bi-building"></i>
+            <i class="bi bi-triangle-fill" style="transform: rotate(90deg); font-size: 1rem;"></i>
           </div>
           <Transition name="fade" mode="out-in">
             <span v-if="!sidebarCollapsed || isMobile" class="brand-text" key="text">
-              SoftVar
+              Apex HRM
             </span>
           </Transition>
         </div>
@@ -224,26 +237,23 @@ const roleBadgeClass = computed(() => {
             <button class="btn btn-icon btn-ghost header-toggle" @click="toggleSidebar">
               <i :class="sidebarCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-left'" class="toggle-icon"></i>
             </button>
-            <div class="header-title">
-              <h2>{{ pageTitle }}</h2>
+            <div class="header-welcome-container">
+              <h1 class="welcome-heading">Welcome Back, {{ user.name }}!</h1>
             </div>
           </div>
 
           <div class="header-right">
-            <!-- Notification bell -->
-            <button class="btn btn-icon btn-ghost header-icon-btn" data-tooltip="Notificaciones">
+            <!-- Notification bell with badge -->
+            <button class="header-icon-btn" data-tooltip="Notificaciones">
               <i class="bi bi-bell"></i>
-              <span class="notification-dot"></span>
+              <span class="notification-badge-count">3</span>
             </button>
 
-            <!-- User dropdown -->
+            <!-- User profile dropdown trigger -->
             <div class="user-dropdown">
               <button class="user-dropdown-trigger" @click.stop="userDropdownOpen = !userDropdownOpen">
-                <div class="avatar avatar-sm avatar-placeholder">{{ user.initials }}</div>
-                <div class="user-dropdown-info">
-                  <span class="user-dropdown-name">{{ user.name }}</span>
-                  <span :class="['badge', roleBadgeClass]">{{ user.role }}</span>
-                </div>
+                <div class="avatar avatar-sm avatar-pill">{{ user.initials }}</div>
+                <span class="user-dropdown-name">{{ userShortName }}</span>
                 <i class="bi bi-chevron-down dropdown-arrow" :class="{ open: userDropdownOpen }"></i>
               </button>
 
@@ -306,28 +316,35 @@ const roleBadgeClass = computed(() => {
 </template>
 
 <style>
-/* === LAYOUT SHELL === */
+:root {
+  --color-apex-bg: #F3F5FA;
+  --color-apex-card: #FFFFFF;
+  --color-apex-primary: #3B489E;
+  --color-apex-primary-hover: #2E3A85;
+  --color-apex-text: #101828;
+  --color-apex-muted: #64748B;
+  --color-apex-border: #E2E8F0;
+  --color-apex-active-item: #E0E5F0;
+}
+
+body {
+  background-color: var(--color-apex-bg) !important;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+  background-color: var(--color-apex-bg);
 }
-
-/* === AUTH PAGE TRANSITION === */
-.auth-page-enter-active,
-.auth-page-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-.auth-page-enter-from { opacity: 0; transform: scale(0.97); }
-.auth-page-leave-to { opacity: 0; transform: scale(1.03); }
 
 /* === SIDEBAR === */
 .sidebar {
   width: var(--sidebar-width);
-  background: var(--color-bg-white);
-  border-right: 1px solid var(--color-divider);
+  background: var(--color-apex-bg);
+  border-right: 1px solid rgba(226, 232, 240, 0.7);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -337,6 +354,7 @@ const roleBadgeClass = computed(() => {
   z-index: 1040;
   transition: width var(--transition-slow);
   overflow: hidden;
+  padding: 0 0.5rem;
 }
 
 .sidebar-collapsed {
@@ -361,22 +379,21 @@ const roleBadgeClass = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1.25rem;
-  border-bottom: 1px solid var(--color-divider);
+  padding: 1.5rem 1rem;
   min-height: var(--header-height);
   overflow: hidden;
 }
 
 .brand-icon {
-  width: 38px;
-  height: 38px;
-  background: linear-gradient(135deg, var(--color-primary-700), var(--color-primary-500));
-  border-radius: var(--border-radius-sm);
+  width: 36px;
+  height: 36px;
+  background: var(--color-apex-primary);
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 1.125rem;
+  font-size: 1rem;
   flex-shrink: 0;
   transition: transform var(--transition-base);
 }
@@ -386,9 +403,10 @@ const roleBadgeClass = computed(() => {
 }
 
 .brand-text {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-apex-text);
   white-space: nowrap;
   letter-spacing: -0.02em;
 }
@@ -396,9 +414,8 @@ const roleBadgeClass = computed(() => {
 /* Navigation */
 .sidebar-nav {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.5rem 0.25rem;
   overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .nav-list {
@@ -407,74 +424,61 @@ const roleBadgeClass = computed(() => {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.675rem 0.75rem;
-  border-radius: var(--border-radius-sm);
-  color: var(--color-text-secondary);
+  gap: 0.85rem;
+  padding: 0.7rem 1rem;
+  border-radius: 12px;
+  color: var(--color-apex-muted);
   text-decoration: none;
   transition: all var(--transition-fast);
   white-space: nowrap;
   position: relative;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
 }
 
 .nav-link:hover {
-  background: var(--color-primary-50);
-  color: var(--color-primary-700);
+  background: #E8EEF8;
+  color: var(--color-apex-text);
 }
 
 .nav-link.active {
-  background: var(--color-primary-700);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(24, 95, 165, 0.25);
+  background: var(--color-apex-active-item);
+  color: var(--color-apex-text);
+  font-weight: 700;
+  box-shadow: none;
 }
 
-.nav-link.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 20px;
-  background: #fff;
-  border-radius: 0 3px 3px 0;
+.nav-link.active .nav-icon {
+  color: var(--color-apex-primary);
 }
 
 .nav-icon {
-  font-size: 1.2rem;
-  width: 24px;
+  font-size: 1.15rem;
+  width: 22px;
   text-align: center;
   flex-shrink: 0;
 }
 
 .nav-label {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
 }
 
 /* Sidebar collapsed: show only icons */
 .sidebar-collapsed .nav-link {
   justify-content: center;
-  padding: 0.675rem;
-}
-
-.sidebar-collapsed .nav-link.active::before {
-  left: 2px;
-  width: 2px;
-  height: 16px;
+  padding: 0.7rem;
 }
 
 /* Sidebar footer */
 .sidebar-footer {
-  padding: 1rem 1.25rem;
-  border-top: 1px solid var(--color-divider);
+  padding: 1rem 1rem;
+  border-top: 1px solid var(--color-apex-border);
   overflow: hidden;
 }
 
@@ -496,15 +500,16 @@ const roleBadgeClass = computed(() => {
 
 .sidebar-user-name {
   font-weight: 600;
-  font-size: 0.8125rem;
+  font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--color-apex-text);
 }
 
 .sidebar-user-role {
-  font-size: 0.6875rem;
-  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+  color: var(--color-apex-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -518,6 +523,7 @@ const roleBadgeClass = computed(() => {
   flex-direction: column;
   min-height: 100vh;
   transition: margin-left var(--transition-slow);
+  background: var(--color-apex-bg);
 }
 
 .main-expanded {
@@ -526,55 +532,108 @@ const roleBadgeClass = computed(() => {
 
 /* === HEADER === */
 .app-header {
-  height: var(--header-height);
-  background: var(--color-bg-white);
-  border-bottom: 1px solid var(--color-divider);
+  height: auto;
+  min-height: 80px;
+  background: var(--color-apex-bg);
+  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.5rem;
+  padding: 1.25rem 2rem;
   position: sticky;
   top: 0;
   z-index: 1020;
-  box-shadow: var(--shadow-sm);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
-.header-toggle .toggle-icon {
-  transition: transform var(--transition-base);
-}
-
-.header-title h2 {
+.welcome-heading {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--color-apex-text);
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1.25rem;
+}
+
+.header-search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.header-search-input {
+  background: #FFFFFF;
+  border: 1px solid var(--color-apex-border);
+  border-radius: 9999px;
+  padding: 0.5rem 2.5rem 0.5rem 1.25rem;
+  font-size: 0.9rem;
+  color: var(--color-apex-text);
+  outline: none;
+  width: 220px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  transition: all 0.2s ease;
+}
+
+.header-search-input:focus {
+  width: 280px;
+  border-color: var(--color-apex-primary);
+  box-shadow: 0 0 0 3px rgba(59, 72, 158, 0.15);
+}
+
+.header-search-icon {
+  position: absolute;
+  right: 14px;
+  color: var(--color-apex-muted);
+  font-size: 0.95rem;
+  pointer-events: none;
 }
 
 .header-icon-btn {
   position: relative;
+  background: #FFFFFF;
+  border: 1px solid var(--color-apex-border);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-apex-text);
+  font-size: 1.15rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  transition: background 0.2s;
 }
 
-.notification-dot {
+.header-icon-btn:hover {
+  background: #F8FAFC;
+}
+
+.notification-badge-count {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  background: var(--color-error-accent);
+  top: -4px;
+  right: -4px;
+  background: var(--color-apex-primary);
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border: 2px solid var(--color-bg-white);
-  animation: pulse-dot 2s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #FFFFFF;
 }
 
 /* User dropdown */
@@ -585,32 +644,32 @@ const roleBadgeClass = computed(() => {
 .user-dropdown-trigger {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: var(--border-radius-sm);
+  gap: 0.6rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
   border: none;
   background: transparent;
   cursor: pointer;
   font-family: var(--font-body);
-  transition: background var(--transition-fast);
 }
 
-.user-dropdown-trigger:hover {
-  background: var(--color-primary-50);
-}
-
-.user-dropdown-info {
+.avatar-pill {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #2D3748;
+  color: #FFFFFF;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.3;
-  text-align: left;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
 .user-dropdown-name {
-  font-weight: 600;
-  font-size: 0.8125rem;
-  color: var(--color-text-primary);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--color-apex-text);
 }
 
 .dropdown-arrow {
