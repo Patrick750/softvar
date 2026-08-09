@@ -34,13 +34,15 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:80',
     'http://localhost:8000',
     'https://softvar.adsoproject.dev',
-    'https://softvarapi.adsoproject.dev'
+    'https://softvarapi.adsoproject.dev',
+    "http://localhost"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
+    'http://localhost',
     'http://localhost:80',    
     'http://localhost:8000',
     'http://127.0.0.1:5173',
@@ -79,9 +81,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

@@ -48,14 +48,14 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Apellidos</label>
-              <input type="text" class="form-input" vmodel="editedEmployee.apellidos" required>
+              <input type="text" class="form-input" v-model="editedEmployee.apellidos" required>
             </div>
             <div class="mb-3">
               <label class="form-label">Teléfono</label>
               <input type="tel" class="form-input" v-model="editedEmployee.telefono" placeholder="Opcional">
             </div>
             <div class="flex-row gap-sm mt-3">
-              <button type="submit" class="btn btn-primary flex-1">
+              <button type="submit" class="btn btn-primary flex-1" :disabled="saving">
                 <span v-if="saving" class="spinner spinner-sm me-2"></span>
                 Guardar Cambios
               </button>
@@ -65,7 +65,7 @@
             </div>
           </form>
 
-          <div class="mt-3 text-center">
+          <div v-if="!editing" class="mt-3 text-center">
             <button class="btn btn-outline-primary" @click="startEdit">
               <i class="bi bi-pencil me-2"></i>Editar Información
             </button>
@@ -369,6 +369,12 @@ export default {
       error,
       changingPassword,
       changePassword,
+      editing,
+      editedEmployee,
+      saving,
+      startEdit,
+      cancelEdit,
+      saveEdit,
       filtrarHoy,
       filtrarMes,
       filtrarAnio,
