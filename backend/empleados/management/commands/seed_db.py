@@ -324,8 +324,9 @@ class Command(BaseCommand):
                 continue
 
             for emp in empleados:
-                # Registro de entrada
-                hora_entrada = fecha_dia.replace(hour=7, minute=55 + random.randint(0, 20), second=0)
+                # Registro de entrada (alrededor de las 8:00 AM, ej. entre 7:50 y 8:15)
+                hora_base_entrada = fecha_dia.replace(hour=7, minute=50, second=0, microsecond=0)
+                hora_entrada = hora_base_entrada + timedelta(minutes=random.randint(0, 25))
                 asig_entrada, created = Asistencia.objects.get_or_create(
                     empleado=emp,
                     tipo="ENTRADA",
@@ -344,8 +345,9 @@ class Command(BaseCommand):
                 if created:
                     asistencias_creadas += 1
 
-                # Registro de salida
-                hora_salida = fecha_dia.replace(hour=17, minute=random.randint(0, 15), second=0)
+                # Registro de salida (alrededor de las 5:00 PM, ej. entre 17:00 y 17:30)
+                hora_base_salida = fecha_dia.replace(hour=17, minute=0, second=0, microsecond=0)
+                hora_salida = hora_base_salida + timedelta(minutes=random.randint(0, 30))
                 asig_salida, created = Asistencia.objects.get_or_create(
                     empleado=emp,
                     tipo="SALIDA",
