@@ -1134,25 +1134,25 @@ def generar_reporte_view(request):
                     'Empleado': f"{d.empleado.nombres} {d.empleado.apellidos}",
                     'Cédula': d.empleado.cedula,
                     'Salario Base': f"${d.salario_base:,.2f}",
-                    'Devengado': f"${d.devengado:,.2f}",
-                    'Deducciones': f"${d.deducciones:,.2f}",
+                    'Devengado': f"${d.devengado_total:,.2f}",
+                    'Deducciones': f"${d.deducciones_total:,.2f}",
                     'Neto': f"${d.neto_pagar:,.2f}"
                 })
                 
         elif tipo == 'horas-extras':
             nominas = Nomina.objects.all()
-            detalles = DetalleNomina.objects.filter(nomina__in=nominas, horas_extras_diurnas__gt=0) | DetalleNomina.objects.filter(nomina__in=nominas, horas_extras_nocturnas__gt=0)
+            detalles = DetalleNomina.objects.filter(nomina__in=nominas, horas_extra_diurnas__gt=0) | DetalleNomina.objects.filter(nomina__in=nominas, horas_extra_nocturnas__gt=0)
             if empleado_id:
                 detalles = detalles.filter(empleado_id=empleado_id)
             
             for d in detalles:
-                valor_total = float(d.devengado) - float(d.salario_base)
+                valor_total = float(d.devengado_total) - float(d.salario_base)
                 datos.append({
                     'id': d.id,
                     'Empleado': f"{d.empleado.nombres} {d.empleado.apellidos}",
                     'Cédula': d.empleado.cedula,
-                    'H. Diurnas': float(d.horas_extras_diurnas),
-                    'H. Nocturnas': float(d.horas_extras_nocturnas),
+                    'H. Diurnas': float(d.horas_extra_diurnas),
+                    'H. Nocturnas': float(d.horas_extra_nocturnas),
                     'Valor Total': f"${valor_total:,.2f}"
                 })
                 
