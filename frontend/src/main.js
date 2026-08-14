@@ -29,8 +29,8 @@ axios.interceptors.response.use(
       localStorage.removeItem('userName')
       localStorage.removeItem('userEmail')
       localStorage.removeItem('userId')
-      if (router.currentRoute.value.path !== 'login/') {
-        router.push('login/')
+      if (router.currentRoute.value.path !== '/login') {
+        router.push('/login')
       }
     }
     return Promise.reject(error)

@@ -123,7 +123,7 @@ watch(() => route.path, () => {
 
 // === Computed ===
 const isAuthPage = computed(() => {
-  return route.path === '/login' || route.path === '/reset-password'
+  return route.name === 'login' || route.name === 'reset-password' || route.path.startsWith('/login') || route.path.startsWith('/reset-password')
 })
 
 const pageTitle = computed(() => {
