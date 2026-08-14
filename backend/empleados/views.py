@@ -12,10 +12,17 @@ from .models import Empleado
 from .serializers import EmpleadoSerializer
 from django.utils.crypto import get_random_string
 from django.conf import settings
+from django.core.mail import EmailMessage
+import io
 import smtplib
 import ssl
 import os
 from email.mime.text import MIMEText
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -957,18 +964,252 @@ class NominaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='enviar-desprendibles')
     def enviar_desprendibles(self, request, pk=None):
         nomina = self.get_object()
-        # En una implementación real aquí se generaría el PDF usando reportlab
-        # y se enviaría usando send_mail con el archivo adjunto.
-        # Por propósitos de la simulación del sprint, solo registramos y devolvemos éxito.
-        
+        detalles = nomina.detalles.select_related('empleado').all()
+
+        if not detalles.exists():
+            return Response({'message': 'La nómina no contiene empleados liquidados.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        enviados = 0
+        fallidos = 0
+        errores = []
+
+        meses_nombres = {
+            1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+            5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+            9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+        }
+        mes_nombre = meses_nombres.get(nomina.mes, str(nomina.mes))
+
+        for detalle in detalles:
+            emp = detalle.empleado
+            if not emp or not emp.email:
+                fallidos += 1
+                errores.append(f"{emp.nombres if emp else 'Empleado'} sin correo configurado")
+                continue
+
+            try:
+                pdf_bytes = generar_pdf_desprendible(detalle)
+
+                asunto = f"Desprendible de Pago - Nómina {mes_nombre} {nomina.ano} - SoftVar"
+
+                cuerpo = f"""Hola {emp.nombres} {emp.apellidos},
+
+Adjunto a este correo encontrarás tu desprendible de pago correspondiente a la nómina de {mes_nombre} {nomina.ano}.
+
+Resumen de tu liquidación:
+- Total Devengado: $ {float(detalle.devengado_total):,.2f}
+- Total Deducciones: $ {float(detalle.deducciones_total):,.2f}
+- Neto a Recibir: $ {float(detalle.neto_pagar):,.2f}
+
+Atentamente,
+Departamento de Gestión Humana - SoftVar
+"""
+
+                email_msg = EmailMessage(
+                    subject=asunto,
+                    body=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[emp.email]
+                )
+                email_msg.attach(
+                    filename=f"Desprendible_Pago_{emp.cedula}_{nomina.mes}_{nomina.ano}.pdf",
+                    content=pdf_bytes,
+                    mimetype='application/pdf'
+                )
+                email_msg.send(fail_silently=False)
+                enviados += 1
+            except Exception as e:
+                fallidos += 1
+                errores.append(f"Error enviando a {emp.email}: {str(e)}")
+
         # Registrar en auditoria
         registrar_auditoria(
             request.user, 'ENVIAR_DESPRENDIBLES', 'nominas', nomina.id,
-            None, {'mes': nomina.mes, 'ano': nomina.ano},
+            None, {'mes': nomina.mes, 'ano': nomina.ano, 'enviados': enviados, 'fallidos': fallidos},
             request
         )
 
-        return Response({'message': 'Desprendibles enviados correctamente por correo'}, status=status.HTTP_200_OK)
+        msg = f"Se enviaron {enviados} desprendibles correctamente por correo."
+        if fallidos > 0:
+            msg += f" (Ocurrieron {fallidos} errores al enviar)."
+
+        return Response({
+            'message': msg,
+            'enviados': enviados,
+            'fallidos': fallidos,
+            'errores': errores
+        }, status=status.HTTP_200_OK)
+
+
+def generar_pdf_desprendible(detalle):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor('#042C53'),
+        alignment=1
+    )
+
+    subtitle_style = ParagraphStyle(
+        'DocSubtitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=15,
+        textColor=colors.HexColor('#185FA5'),
+        alignment=1
+    )
+
+    label_style = ParagraphStyle('CellLabel', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12)
+    val_style = ParagraphStyle('CellVal', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12)
+    val_right_style = ParagraphStyle('CellValRight', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12, alignment=2)
+    val_bold_right_style = ParagraphStyle('CellValBoldRight', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=2)
+
+    elements = []
+
+    elements.append(Paragraph("SOFTVAR - SISTEMA DE NÓMINA", title_style))
+    elements.append(Spacer(1, 4))
+
+    meses_nombres = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    mes_str = meses_nombres.get(detalle.nomina.mes, str(detalle.nomina.mes))
+    periodo_str = f"DESPRENDIBLE DE PAGO - PERÍODO: {mes_str.upper()} {detalle.nomina.ano}"
+    elements.append(Paragraph(periodo_str, subtitle_style))
+    elements.append(Spacer(1, 15))
+
+    emp = detalle.empleado
+    cargo_display = str(emp.cargo) if emp.cargo else '—'
+    contrato_display = dict(Empleado.TIPO_CONTRATO_CHOICES).get(emp.tipo_contrato, emp.tipo_contrato or '—')
+
+    emp_info_data = [
+        [
+            Paragraph("Empleado:", label_style), Paragraph(f"{emp.nombres} {emp.apellidos}", val_style),
+            Paragraph("Cédula:", label_style), Paragraph(str(emp.cedula), val_style)
+        ],
+        [
+            Paragraph("Cargo:", label_style), Paragraph(cargo_display, val_style),
+            Paragraph("Tipo Contrato:", label_style), Paragraph(contrato_display, val_style)
+        ],
+        [
+            Paragraph("EPS:", label_style), Paragraph(str(emp.eps or '—'), val_style),
+            Paragraph("AFP (Pensión):", label_style), Paragraph(str(emp.afp or '—'), val_style)
+        ]
+    ]
+
+    t_emp = Table(emp_info_data, colWidths=[1.1*inch, 2.6*inch, 1.1*inch, 2.4*inch])
+    t_emp.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F4F7FA')),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+    ]))
+    elements.append(t_emp)
+    elements.append(Spacer(1, 15))
+
+    def fmt_money(val):
+        return f"$ {float(val or 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    table_data = [
+        [
+            Paragraph("CONCEPTO DEVENGADOS", label_style),
+            Paragraph("VALOR", ParagraphStyle('H1', parent=label_style, alignment=2)),
+            Paragraph("CONCEPTO DEDUCCIONES", label_style),
+            Paragraph("VALOR", ParagraphStyle('H2', parent=label_style, alignment=2))
+        ],
+        [
+            Paragraph("Salario Base", val_style),
+            Paragraph(fmt_money(detalle.salario_base), val_right_style),
+            Paragraph("Salud (4%)", val_style),
+            Paragraph(fmt_money(detalle.descuento_salud), val_right_style)
+        ],
+        [
+            Paragraph(f"Horas Extra Diurnas ({detalle.horas_extra_diurnas} hrs)", val_style),
+            Paragraph(fmt_money(0), val_right_style),
+            Paragraph("Pensión (4%)", val_style),
+            Paragraph(fmt_money(detalle.descuento_pension), val_right_style)
+        ],
+        [
+            Paragraph(f"Horas Extra Nocturnas ({detalle.horas_extra_nocturnas} hrs)", val_style),
+            Paragraph(fmt_money(0), val_right_style),
+            Paragraph("", val_style),
+            Paragraph("", val_right_style)
+        ],
+        [
+            Paragraph("TOTAL DEVENGADO", label_style),
+            Paragraph(fmt_money(detalle.devengado_total), val_bold_right_style),
+            Paragraph("TOTAL DEDUCCIONES", label_style),
+            Paragraph(fmt_money(detalle.deducciones_total), val_bold_right_style)
+        ]
+    ]
+
+    t_fin = Table(table_data, colWidths=[2.2*inch, 1.4*inch, 2.2*inch, 1.4*inch])
+    t_fin.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (1,0), colors.HexColor('#E2E8F0')),
+        ('BACKGROUND', (2,0), (3,0), colors.HexColor('#E2E8F0')),
+        ('BACKGROUND', (0,4), (1,4), colors.HexColor('#EDF2F7')),
+        ('BACKGROUND', (2,4), (3,4), colors.HexColor('#EDF2F7')),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+    ]))
+    elements.append(t_fin)
+    elements.append(Spacer(1, 15))
+
+    neto_style = ParagraphStyle(
+        'NetoVal',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor('#15803D'),
+        alignment=2
+    )
+
+    t_neto = Table([
+        [Paragraph("NETO A RECIBIR / PAGAR:", ParagraphStyle('NetoLabel', parent=label_style, fontSize=11, leading=14)),
+         Paragraph(fmt_money(detalle.neto_pagar), neto_style)]
+    ], colWidths=[3.6*inch, 3.6*inch])
+    t_neto.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#DCFCE7')),
+        ('BOX', (0,0), (-1,-1), 1.5, colors.HexColor('#22C55E')),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('LEFTPADDING', (0,0), (-1,-1), 12),
+        ('RIGHTPADDING', (0,0), (-1,-1), 12),
+    ]))
+    elements.append(t_neto)
+    elements.append(Spacer(1, 25))
+
+    footer_style = ParagraphStyle('FooterStyle', parent=styles['Italic'], fontSize=8, leading=11, textColor=colors.HexColor('#64748B'), alignment=1)
+    elements.append(Paragraph("Este documento es un comprobante de nómina digital expedido por SoftVar. No requiere firma física.", footer_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
 
 from django.db.models import Sum, Count, Avg, F
 from django.db.models.functions import TruncMonth
