@@ -94,9 +94,10 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
                 Exportar a Excel
               </button>
-              <button class="btn btn-outline btn-ach" @click="enviarDesprendibles">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                Enviar Desprendibles
+              <button class="btn btn-outline btn-ach" @click="enviarDesprendibles" :disabled="enviandoDesprendibles">
+                <span v-if="enviandoDesprendibles" class="spinner"></span>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                {{ enviandoDesprendibles ? 'Enviando...' : 'Enviar Desprendibles' }}
               </button>
             </div>
           </div>
@@ -178,6 +179,7 @@ export default {
     const periodo = ref({ mes: '', ano: new Date().getFullYear() })
     const nominaGenerada = ref(false)
     const generando = ref(false)
+    const enviandoDesprendibles = ref(false)
     const detalleNomina = ref([])
     const resumen = ref({ totalEmpleados: 0, nominaTotal: 0, totalDevengados: 0, totalDeducciones: 0 })
     const nominaId = ref(null)
@@ -219,18 +221,22 @@ export default {
 
     const exportarExcel = () => alert('Exportando a Excel...')
     const enviarDesprendibles = async () => {
-      if (!nominaId.value) return
+      if (!nominaId.value || enviandoDesprendibles.value) return
+      enviandoDesprendibles.value = true
       try {
         const res = await axios.post(`/api/nomina/${nominaId.value}/enviar-desprendibles/`)
         alert(res.data.message || 'Desprendibles enviados.')
       } catch (e) {
-        alert('Error enviando desprendibles.')
+        console.error('Error enviando desprendibles:', e)
+        alert(e.response?.data?.message || 'Error enviando desprendibles por correo.')
+      } finally {
+        enviandoDesprendibles.value = false
       }
     }
 
     onMounted(() => { periodo.value.mes = String(new Date().getMonth() + 1) })
 
-    return { meses, periodo, nominaGenerada, generando, detalleNomina, resumen, periodoLabel, generarNomina, formatoMoneda, formatNumber, exportarExcel, enviarDesprendibles }
+    return { meses, periodo, nominaGenerada, generando, enviandoDesprendibles, detalleNomina, resumen, periodoLabel, generarNomina, formatoMoneda, formatNumber, exportarExcel, enviarDesprendibles }
   }
 }
 </script>
